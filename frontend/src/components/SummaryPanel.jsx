@@ -13,6 +13,91 @@ const TABS = [
   { key: 'qa', label: 'AI 问答', icon: '💬' },
 ]
 
+// 支持的语言，要加新语言在这里加一项即可（要跟后端 summarizer.py 的 SUPPORTED_LANGUAGES 对上）
+const LANGUAGES = [
+  { code: 'zh-Hans', label: '简体中文' },
+  { code: 'zh-Hant', label: '繁體中文' },
+  { code: 'en', label: 'English' },
+  { code: 'pt', label: 'Português' },
+]
+
+// 视频原语言：多一个"自动识别"选项，留空传给后端表示不确定，交给 Whisper 自己判断
+const SOURCE_LANGUAGES = [{ code: '', label: '自动识别' }, ...LANGUAGES]
+
+function LanguageField({ label, value, onChange, disabled, options, size = 'sm' }) {
+  const isLg = size === 'lg'
+  return (
+    <label className={`flex ${isLg ? 'flex-col gap-1.5' : 'items-center gap-2'}`}>
+      <span className={isLg ? 'text-xs font-medium uppercase tracking-wide text-slate-400' : 'text-sm text-slate-500'}>
+        {label}
+      </span>
+      <span className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className={`appearance-none rounded-lg border border-slate-200 bg-white font-medium text-slate-700 transition-colors hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+            isLg ? 'py-2.5 pl-3.5 pr-9 text-sm w-44' : 'py-1.5 pl-3 pr-8 text-sm'
+          }`}
+        >
+          {options.map((opt) => (
+            <option key={opt.code} value={opt.code}>{opt.label}</option>
+          ))}
+        </select>
+        <svg
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-slate-400 ${isLg ? 'right-3 h-4 w-4' : 'right-2.5 h-3.5 w-3.5'}`}
+          viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 7.5l5 5 5-5" />
+        </svg>
+      </span>
+    </label>
+  )
+}
+
+function StartScreen({ sourceLanguage, setSourceLanguage, language, setLanguage, onStart }) {
+  return (
+    <div className="flex flex-col items-center gap-7 px-6 py-16 text-center sm:px-10">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
+        <svg className="h-7 w-7 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v3m0 12v3m9-9h-3M6 12H3m14.5-6.5-2.1 2.1M8.6 15.4l-2.1 2.1m0-11 2.1 2.1m8.8 8.8 2.1 2.1M12 8a4 4 0 100 8 4 4 0 000-8Z" />
+        </svg>
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900">AI 一键总结这个视频</h3>
+        <p className="mt-1.5 text-sm text-slate-500">自动提取字幕、生成摘要与思维导图，还能针对内容多轮追问</p>
+      </div>
+
+      <div className="flex flex-wrap items-start justify-center gap-6">
+        <LanguageField
+          label="视频原语言"
+          value={sourceLanguage}
+          onChange={setSourceLanguage}
+          options={SOURCE_LANGUAGES}
+          size="lg"
+        />
+        <LanguageField
+          label="总结语言"
+          value={language}
+          onChange={setLanguage}
+          options={LANGUAGES}
+          size="lg"
+        />
+      </div>
+
+      <button
+        onClick={onStart}
+        className="flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.98 2 9.7 8.6 3 11l6.7 2.3 2.28 6.7 2.3-6.7L21 11l-6.72-2.4L11.98 2Z" />
+        </svg>
+        开始总结
+      </button>
+    </div>
+  )
+}
+
 const SUBTITLE_FORMATS = [
   { key: 'srt', label: 'SRT 字幕', ext: 'srt' },
   { key: 'vtt', label: 'VTT 字幕', ext: 'vtt' },
@@ -76,7 +161,10 @@ function getSafeFilename(title) {
 }
 
 export default function SummaryPanel({ videoUrl, videoTitle }) {
+  const [started, setStarted] = useState(false)
   const [activeTab, setActiveTab] = useState('summary')
+  const [language, setLanguage] = useState('en')
+  const [sourceLanguage, setSourceLanguage] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('正在提取视频字幕...')
 
@@ -112,10 +200,12 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   }, [])
 
   useEffect(() => {
-    if (mindmapMarkdown) {
+    // 必须等思维导图这个 Tab 真正可见（容器有宽高）才能渲染，
+    // 不然 markmap 用零宽高计算自适应缩放会得到 NaN，画出一片空白
+    if (mindmapMarkdown && activeTab === 'mindmap') {
       requestAnimationFrame(() => renderMindmap(mindmapMarkdown))
     }
-  }, [mindmapMarkdown, renderMindmap])
+  }, [mindmapMarkdown, activeTab, renderMindmap])
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -136,6 +226,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   }, [])
 
   useEffect(() => {
+    if (!started) return
     let cancelled = false
 
     async function startSummarize() {
@@ -145,7 +236,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
       setLoadingMessage('正在提取视频字幕...')
 
       try {
-        await summarizeVideo(videoUrl, 'zh', {
+        await summarizeVideo(videoUrl, { language, sourceLanguage }, {
           subtitle: (data) => {
             if (cancelled) return
             try {
@@ -184,7 +275,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
 
     startSummarize()
     return () => { cancelled = true }
-  }, [videoUrl])
+  }, [started, videoUrl, language, sourceLanguage])
 
   function toggleFullscreen() {
     if (!mindmapContainerRef.current) return
@@ -198,6 +289,14 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   function buildExportableSvg() {
     if (!mindmapSvgRef.current) return null
     const cloned = mindmapSvgRef.current.cloneNode(true)
+
+    // 保险：万一残留了 NaN transform（比如切 Tab 时机不巧），导出前强制归零，避免整张图跑到取景框外面
+    cloned.querySelectorAll('[transform]').forEach((el) => {
+      const t = el.getAttribute('transform')
+      if (t && t.includes('NaN')) {
+        el.setAttribute('transform', 'translate(0,0) scale(1)')
+      }
+    })
 
     cloned.querySelectorAll('foreignObject').forEach((fo) => {
       const textContent = fo.textContent?.trim() || ''
@@ -224,7 +323,23 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
     if (gRoot) {
       try {
         const bbox = gRoot.getBBox()
-        if (bbox.width > 0 && bbox.height > 0) return bbox
+        if (bbox.width > 0 && bbox.height > 0) {
+          // getBBox() 返回的是 <g> 自身 transform 生效之前的本地坐标，
+          // markmap 会给这个 <g> 加 translate+scale 做自适应，这里要把这个变换换算回去，
+          // 不然算出来的取景框跟内容实际所在位置对不上，导出就是一片空白
+          const transform = gRoot.getAttribute('transform') || ''
+          const translateMatch = transform.match(/translate\(\s*([-\d.e]+)\s*[,\s]\s*([-\d.e]+)\s*\)/)
+          const scaleMatch = transform.match(/scale\(\s*([-\d.e]+)/)
+          const tx = translateMatch ? parseFloat(translateMatch[1]) : 0
+          const ty = translateMatch ? parseFloat(translateMatch[2]) : 0
+          const sc = scaleMatch ? parseFloat(scaleMatch[1]) : 1
+          return {
+            x: bbox.x * sc + tx,
+            y: bbox.y * sc + ty,
+            width: bbox.width * sc,
+            height: bbox.height * sc,
+          }
+        }
       } catch { /* ignore */ }
     }
     try {
@@ -248,6 +363,9 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   }
 
   function serializeSvg(svgEl) {
+    // markmap-view 会把自己需要的样式以 <style> 的形式直接塞进 SVG 内部（不是挂在页面全局），
+    // cloneNode(true) 已经把这份样式带过去了，不需要再去页面上找其它 <style> 标签抄一遍——
+    // 之前这么做过，结果连 Tailwind 编译出来的整个样式表都被误抄进去，把 SVG 解析搞挂了
     let svgString = new XMLSerializer().serializeToString(svgEl)
     if (!svgString.includes('xmlns=')) {
       svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
@@ -293,6 +411,12 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   function downloadMindmapSvg() {
     if (!mindmapSvgRef.current) return
     const cloned = mindmapSvgRef.current.cloneNode(true)
+    cloned.querySelectorAll('[transform]').forEach((el) => {
+      const t = el.getAttribute('transform')
+      if (t && t.includes('NaN')) {
+        el.setAttribute('transform', 'translate(0,0) scale(1)')
+      }
+    })
     setFullViewBox(cloned)
     const svgString = serializeSvg(cloned)
     const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
@@ -340,7 +464,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
     }
 
     try {
-      await chatWithVideo(videoUrl, question, subtitleData.full_text || '', {
+      await chatWithVideo(videoUrl, question, subtitleData.full_text || '', { language, sourceLanguage }, {
         answer: (data) => {
           let token = data
           try { token = JSON.parse(data) } catch { /* raw */ }
@@ -366,6 +490,33 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {!started ? (
+        <StartScreen
+          sourceLanguage={sourceLanguage}
+          setSourceLanguage={setSourceLanguage}
+          language={language}
+          setLanguage={setLanguage}
+          onStart={() => setStarted(true)}
+        />
+      ) : (
+      <>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-5">
+        <LanguageField
+          label="视频原语言"
+          value={sourceLanguage}
+          onChange={setSourceLanguage}
+          disabled={loading}
+          options={SOURCE_LANGUAGES}
+        />
+        <LanguageField
+          label="总结语言"
+          value={language}
+          onChange={setLanguage}
+          disabled={loading}
+          options={LANGUAGES}
+        />
+      </div>
+
       <div className="flex border-b border-slate-100">
         {TABS.map((tab) => (
           <button
@@ -396,7 +547,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
         <div style={{ display: activeTab === 'summary' ? 'block' : 'none' }}>
           {summaryText && (
             <div
-              className="prose prose-sm prose-slate max-w-none"
+              className="prose prose-slate max-w-none prose-headings:font-semibold prose-p:leading-relaxed"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(summaryText) }}
             />
           )}
@@ -417,7 +568,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
                   共 {subtitleData.segments.length} 条字幕
                   {subtitleData.language && (
                     <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">
-                      {subtitleData.subtitle_type === 'manual' ? '人工字幕' : '自动字幕'} · {subtitleData.language}
+                      {subtitleData.subtitle_type === 'manual' ? '人工字幕' : subtitleData.subtitle_type === 'whisper' ? 'AI 转录' : '自动字幕'} · {subtitleData.language}
                     </span>
                   )}
                 </div>
@@ -458,14 +609,18 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
                     <span className="flex-shrink-0 text-xs text-blue-600 font-mono pt-0.5 min-w-[60px]">
                       {formatTime(seg.start)}
                     </span>
-                    <span className="text-sm text-slate-700 leading-relaxed">{seg.text}</span>
+                    <span className="text-base text-slate-700 leading-relaxed">{seg.text}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : !loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-              <p className="text-sm">该视频暂无可用字幕</p>
+              <p className="text-base">
+                {subtitleData.subtitle_type === 'too_long'
+                  ? `该视频时长约 ${subtitleData.duration_minutes} 分钟，超过当前额度支持的转录时长`
+                  : '该视频暂无可用字幕'}
+              </p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16">
@@ -530,7 +685,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                    className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-base leading-relaxed ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white rounded-br-md'
                         : 'bg-slate-50 text-slate-800 rounded-bl-md border border-slate-100'
@@ -538,7 +693,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
                   >
                     {msg.role === 'assistant' ? (
                       <div
-                        className="prose prose-sm max-w-none"
+                        className="prose prose-slate max-w-none prose-p:leading-relaxed"
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
                       />
                     ) : (
@@ -560,7 +715,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
                 type="text"
                 placeholder="输入你的问题..."
                 disabled={chatLoading}
-                className="flex-1 h-11 px-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
+                className="flex-1 h-11 px-4 rounded-xl border border-slate-200 bg-white text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
               />
               <button
                 onClick={sendQuestion}
@@ -573,6 +728,8 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

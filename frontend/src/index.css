@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -8,5 +9,19 @@
 body {
   margin: 0;
   background: #f8fafc;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 思维导图：markmap 的节点文字渲染在 SVG foreignObject 里，
+   Tailwind 的 preflight 会重置这些 div 的字体/颜色继承，需要显式兜底 */
+.mindmap-wrapper .markmap-foreign {
+  display: inline-block !important;
+}
+.mindmap-wrapper foreignObject {
+  overflow: visible !important;
+}
+.mindmap-wrapper foreignObject div {
+  font: 300 16px/20px "Inter", sans-serif;
+  color: #333;
 }

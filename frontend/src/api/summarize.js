@@ -54,21 +54,21 @@ async function handleSSEStream(response, callbacks) {
   dispatch()
 }
 
-export async function summarizeVideo(url, language = 'zh', callbacks = {}) {
+export async function summarizeVideo(url, { language = 'zh-Hans', sourceLanguage = '' } = {}, callbacks = {}) {
   const response = await fetch('/api/summarize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, language }),
+    body: JSON.stringify({ url, language, source_language: sourceLanguage }),
   })
   if (!response.ok) throw new Error(`请求失败: ${response.status}`)
   await handleSSEStream(response, callbacks)
 }
 
-export async function chatWithVideo(url, question, subtitleText = '', callbacks = {}) {
+export async function chatWithVideo(url, question, subtitleText = '', { language = 'zh-Hans', sourceLanguage = '' } = {}, callbacks = {}) {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, question, subtitle_text: subtitleText }),
+    body: JSON.stringify({ url, question, subtitle_text: subtitleText, language, source_language: sourceLanguage }),
   })
   if (!response.ok) throw new Error(`请求失败: ${response.status}`)
   await handleSSEStream(response, callbacks)

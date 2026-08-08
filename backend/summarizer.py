@@ -15,21 +15,68 @@ def _is_bilibili_url(url: str) -> bool:
     return "bilibili.com" in url or "b23.tv" in url
 
 
+# 支持的语言：AI 输出语言的显示名 + 总结小节标题 + 字幕轨道优先候选。
+# 以后要加新语言（比如日语、韩语），在这里加一个条目即可，前端选项列表同步加一项。
+DEFAULT_LANGUAGE = "zh-Hans"
+
+SUPPORTED_LANGUAGES = {
+    "zh-Hans": {
+        "name": "简体中文",
+        "subtitle_candidates": ["zh-Hans", "zh-CN", "zh"],
+        "headers": {"overview": "视频概述", "outline": "内容大纲", "keypoints": "核心知识要点", "summary": "总结"},
+    },
+    "zh-Hant": {
+        "name": "繁體中文",
+        "subtitle_candidates": ["zh-Hant", "zh-TW", "zh-HK", "zh"],
+        "headers": {"overview": "影片概述", "outline": "內容大綱", "keypoints": "核心知識要點", "summary": "總結"},
+    },
+    "en": {
+        "name": "English",
+        "subtitle_candidates": ["en", "en-US", "en-GB"],
+        "headers": {"overview": "Overview", "outline": "Outline", "keypoints": "Key Takeaways", "summary": "Summary"},
+    },
+    "pt": {
+        "name": "Português",
+        "subtitle_candidates": ["pt", "pt-BR", "pt-PT"],
+        "headers": {"overview": "Visão Geral", "outline": "Estrutura do Conteúdo", "keypoints": "Principais Pontos", "summary": "Resumo"},
+    },
+}
+
+
+def _get_language_config(language: str) -> dict:
+    return SUPPORTED_LANGUAGES.get(language, SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE])
+
+
+# Groq Whisper 语言强制参数用 ISO-639-1，不区分简繁（那是文字体系，不是语音语言）
+GROQ_LANGUAGE_MAP = {"zh-Hans": "zh", "zh-Hant": "zh", "en": "en", "pt": "pt"}
+GROQ_MAX_AUDIO_BYTES = 24 * 1024 * 1024  # 免费档上传上限 25MB，留 1MB 余量
+
+# Whisper 转录目前是要消耗 Groq 额度的付费功能，先用一个全局写死的时长上限做防护。
+# 现在还没有账号系统，所有人都按免费档算，所以取免费档的上限（10分钟）；
+# 等接入用户系统/套餐后，改成根据登录用户的付费状态动态取值（免费10分钟/付费30分钟）
+MAX_WHISPER_MINUTES = 10
+
+
 class SubtitleExtractor:
-    """从视频 URL 提取平台字幕（人工字幕 > 自动字幕）"""
+    """从视频 URL 提取字幕：平台字幕（人工 > 自动）优先，没有字幕的视频用 Groq Whisper 转录音频兜底"""
 
-    PREFERRED_LANGS = ["zh-Hans", "zh", "zh-CN", "en", "ja", "ko"]
+    # 通用兜底优先级：请求语言对应的候选轨道会被优先插到这个列表前面
+    PREFERRED_LANGS = ["zh-Hans", "zh", "zh-CN", "zh-Hant", "zh-TW", "zh-HK", "en", "pt", "pt-BR", "pt-PT", "ja", "ko"]
 
-    def extract(self, url: str) -> dict:
+    def extract(self, url: str, source_lang: str = "") -> dict:
         """
         提取视频字幕，返回:
         {
             "has_subtitle": bool,
             "language": str,
-            "subtitle_type": "manual" | "auto" | "none",
+            "subtitle_type": "manual" | "auto" | "whisper" | "too_long" | "none",
             "segments": [{"start": float, "end": float, "text": str}, ...],
-            "full_text": str
+            "full_text": str,
+            "duration_minutes": float,  # 仅 subtitle_type == "too_long" 时存在
         }
+
+        source_lang: 用户确认的视频原语言（如 "en"），用于优先匹配字幕轨道 + 作为 Whisper 转录的语言提示；
+                     留空表示"不确定，自动识别"
         """
         if _is_bilibili_url(url):
             result = self._extract_bilibili(url)
@@ -43,20 +90,138 @@ class SubtitleExtractor:
         }
         auto_subs = info.get("automatic_captions") or {}
 
-        lang, sub_url, sub_type = self._pick_best_subtitle(manual_subs, auto_subs)
-        if not sub_url:
-            return self._empty()
+        if source_lang:
+            # 用户明确说了原语言：按语言优先级匹配人工/自动字幕轨道
+            priority = self._build_priority(source_lang)
+            lang, sub_url, sub_type = self._pick_best_subtitle(manual_subs, auto_subs, priority)
+        else:
+            # "自动识别"：不套用中文优先的通用列表（那会把中文当默认语言，非中文视频反而选错轨道）。
+            # 只信人工字幕（信号明确，不管什么语言）；自动字幕语言不确定就不猜，交给下面的 Whisper 真正做语音识别
+            lang, sub_url, sub_type = self._pick_any_manual_subtitle(manual_subs)
 
-        segments = self._download_and_parse(url, lang, sub_type)
-        full_text = " ".join(seg["text"] for seg in segments)
+        if sub_url:
+            try:
+                segments = self._download_and_parse(url, lang, sub_type)
+            except Exception:
+                # 字幕轨道存在但下载失败（网络问题/平台限流等），别把整个请求搞崩，
+                # 当作"没有可用字幕"处理，走到下面的 Whisper 兜底
+                segments = []
+            full_text = " ".join(seg["text"] for seg in segments)
+            if segments:
+                return {
+                    "has_subtitle": True,
+                    "language": lang,
+                    "subtitle_type": sub_type,
+                    "segments": segments,
+                    "full_text": full_text,
+                }
+
+        duration = info.get("duration") or 0
+        if duration > MAX_WHISPER_MINUTES * 60:
+            return self._too_long(duration)
+
+        whisper_result = self._transcribe_with_whisper(url, source_lang)
+        return whisper_result or self._empty()
+
+    @staticmethod
+    def _too_long(duration: float) -> dict:
+        return {
+            "has_subtitle": False,
+            "language": "",
+            "subtitle_type": "too_long",
+            "segments": [],
+            "full_text": "",
+            "duration_minutes": round(duration / 60, 1),
+        }
+
+    @staticmethod
+    def _whisper_failed() -> dict:
+        """转录服务本身出错了（限流/网络/超时等），跟"这个视频压根没有字幕"是两码事，
+        不能混在一起当成 _empty() 处理，不然用户会被"该视频没有可用的字幕"这句话误导"""
+        return {
+            "has_subtitle": False,
+            "language": "",
+            "subtitle_type": "whisper_failed",
+            "segments": [],
+            "full_text": "",
+        }
+
+    def _transcribe_with_whisper(self, url: str, source_lang: str) -> Optional[dict]:
+        """视频没有平台字幕时，下载音轨丢给 Groq Whisper 转录（未配置 GROQ_API_KEY 时直接跳过，
+        这种情况视为"没有这个兜底能力"，走 _empty()；真正调用失败则返回 _whisper_failed()）"""
+        api_key = os.getenv("GROQ_API_KEY", "").strip()
+        if not api_key:
+            return None
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            audio_path = self._download_audio(url, tmp_dir)
+            if not audio_path or os.path.getsize(audio_path) > GROQ_MAX_AUDIO_BYTES:
+                return None
+
+            # max_retries=1：SDK 自动重试1次（总共最多2次真实请求），避免默认值2（总共3次）过多消耗 Groq 免费额度
+            client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1", max_retries=1)
+            try:
+                with open(audio_path, "rb") as f:
+                    resp = client.audio.transcriptions.create(
+                        file=f,
+                        model="whisper-large-v3",
+                        response_format="verbose_json",
+                        timestamp_granularities=["segment"],
+                        # source_lang 留空（"不确定，自动识别"）时不传 language，让 Whisper 自己检测
+                        language=GROQ_LANGUAGE_MAP.get(source_lang),
+                    )
+            except Exception:
+                return self._whisper_failed()
+
+        segments = []
+        for seg in getattr(resp, "segments", None) or []:
+            text = (seg.text if hasattr(seg, "text") else seg.get("text", "")).strip()
+            if not text:
+                continue
+            start = seg.start if hasattr(seg, "start") else seg.get("start", 0)
+            end = seg.end if hasattr(seg, "end") else seg.get("end", 0)
+            segments.append({"start": round(start, 2), "end": round(end, 2), "text": text})
+
+        if not segments:
+            return None
 
         return {
-            "has_subtitle": len(segments) > 0,
-            "language": lang,
-            "subtitle_type": sub_type,
+            "has_subtitle": True,
+            "language": getattr(resp, "language", "") or source_lang,
+            "subtitle_type": "whisper",
             "segments": segments,
-            "full_text": full_text,
+            "full_text": " ".join(seg["text"] for seg in segments),
         }
+
+    @staticmethod
+    def _download_audio(url: str, tmp_dir: str) -> Optional[str]:
+        """下载视频音轨，有 ffmpeg 就顺便转成低码率 mp3（省体积、更容易压到 25MB 免费上限内）"""
+        from downloader import _find_ffmpeg_path
+
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "noplaylist": True,
+            "format": "bestaudio/best",
+            "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
+        }
+        ffmpeg_path = _find_ffmpeg_path()
+        if ffmpeg_path:
+            ydl_opts["ffmpeg_location"] = ffmpeg_path
+            ydl_opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "64",
+            }]
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        except Exception:
+            return None
+
+        files = [f for f in os.listdir(tmp_dir) if f.startswith("audio.")]
+        return os.path.join(tmp_dir, files[0]) if files else None
 
     @staticmethod
     def _empty() -> dict:
@@ -157,15 +322,32 @@ class SubtitleExtractor:
             raise ValueError("无法解析该视频链接")
         return info
 
-    def _pick_best_subtitle(self, manual_subs: dict, auto_subs: dict):
+    @staticmethod
+    def _pick_any_manual_subtitle(manual_subs: dict):
+        """自动识别模式下的字幕选择：只挑人工字幕，不管语言是什么，返回 (lang, url, type)"""
+        if manual_subs:
+            lang = next(iter(manual_subs))
+            url = SubtitleExtractor._get_format_url(manual_subs[lang])
+            if url:
+                return lang, url, "manual"
+        return "", None, "none"
+
+    @staticmethod
+    def _build_priority(preferred_lang: str) -> list:
+        """把请求语言对应的字幕候选插到通用优先级列表前面"""
+        candidates = SUPPORTED_LANGUAGES.get(preferred_lang, {}).get("subtitle_candidates", [])
+        rest = [lang for lang in SubtitleExtractor.PREFERRED_LANGS if lang not in candidates]
+        return candidates + rest
+
+    def _pick_best_subtitle(self, manual_subs: dict, auto_subs: dict, priority: list):
         """按优先级选择最佳字幕，返回 (lang, url, type)"""
-        for lang in self.PREFERRED_LANGS:
+        for lang in priority:
             if lang in manual_subs:
                 url = self._get_format_url(manual_subs[lang])
                 if url:
                     return lang, url, "manual"
 
-        for lang in self.PREFERRED_LANGS:
+        for lang in priority:
             if lang in auto_subs:
                 url = self._get_format_url(auto_subs[lang])
                 if url:
@@ -282,7 +464,9 @@ class VideoSummarizer:
         api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY 环境变量未设置")
-        self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+        # max_retries=0：关掉 SDK 自带的自动重试，只用下面 _create() 里我们自己写的那层退避重试，
+        # 避免两层重试叠加（最坏情况本来会是 我们的3次 × SDK的3次 = 9次真实请求）
+        self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1", max_retries=0)
 
     def _create(self, **kwargs):
         """带故障转移列表 + 指数退避重试的 chat.completions.create 封装"""
@@ -307,7 +491,7 @@ class VideoSummarizer:
                 time.sleep(self.RETRY_BACKOFF_SECONDS * (2 ** attempt))
         raise last_err
 
-    def summarize_stream(self, subtitle_text: str, language: str = "zh"):
+    def summarize_stream(self, subtitle_text: str, language: str = DEFAULT_LANGUAGE):
         """流式生成视频总结，yield 每个 token"""
         prompt = self._build_summary_prompt(subtitle_text, language)
         response = self._create(
@@ -324,7 +508,7 @@ class VideoSummarizer:
             if delta.content:
                 yield delta.content
 
-    def generate_mindmap(self, subtitle_text: str, language: str = "zh") -> str:
+    def generate_mindmap(self, subtitle_text: str, language: str = DEFAULT_LANGUAGE) -> str:
         """生成思维导图 Markdown（非流式，一次性返回）"""
         prompt = self._build_mindmap_prompt(subtitle_text, language)
         response = self._create(
@@ -338,9 +522,9 @@ class VideoSummarizer:
         )
         return response.choices[0].message.content
 
-    def chat_stream(self, subtitle_text: str, question: str):
+    def chat_stream(self, subtitle_text: str, question: str, language: str = DEFAULT_LANGUAGE):
         """基于视频内容的 AI 问答，流式返回"""
-        prompt = self._build_chat_prompt(subtitle_text, question)
+        prompt = self._build_chat_prompt(subtitle_text, question, language)
         response = self._create(
             messages=[
                 {"role": "system", "content": "你是一个视频内容问答助手。根据提供的视频字幕内容来回答用户的问题。如果问题超出视频内容范围，请诚实告知。"},
@@ -358,20 +542,21 @@ class VideoSummarizer:
     @staticmethod
     def _build_summary_prompt(subtitle_text: str, language: str) -> str:
         truncated = subtitle_text[:15000]
-        lang_hint = "中文" if language.startswith("zh") else "与原文相同的语言"
-        return f"""请对以下视频字幕内容进行深度总结分析，使用{lang_hint}输出。
+        cfg = _get_language_config(language)
+        h = cfg["headers"]
+        return f"""请对以下视频字幕内容进行深度总结分析，使用{cfg['name']}输出。
 
 要求输出格式：
-## 视频概述
+## {h['overview']}
 （用2-3句话概括视频的主题和核心内容）
 
-## 内容大纲
+## {h['outline']}
 （按视频内容的逻辑顺序，列出主要章节/段落，每个章节包含要点）
 
-## 核心知识要点
+## {h['keypoints']}
 （提取视频中最重要的知识点、观点或结论，用编号列表形式）
 
-## 总结
+## {h['summary']}
 （用1-2句话给出整体评价或一句话总结）
 
 ---
@@ -381,8 +566,8 @@ class VideoSummarizer:
     @staticmethod
     def _build_mindmap_prompt(subtitle_text: str, language: str) -> str:
         truncated = subtitle_text[:15000]
-        lang_hint = "中文" if language.startswith("zh") else "与原文相同的语言"
-        return f"""请将以下视频字幕内容整理为思维导图结构，使用{lang_hint}输出。
+        cfg = _get_language_config(language)
+        return f"""请将以下视频字幕内容整理为思维导图结构，使用{cfg['name']}输出。
 
 要求：
 1. 使用 Markdown 标题层级格式（# 一级标题，## 二级标题，### 三级标题）
@@ -398,9 +583,10 @@ class VideoSummarizer:
 {truncated}"""
 
     @staticmethod
-    def _build_chat_prompt(subtitle_text: str, question: str) -> str:
+    def _build_chat_prompt(subtitle_text: str, question: str, language: str) -> str:
         truncated = subtitle_text[:12000]
-        return f"""以下是一个视频的字幕内容，请根据这些内容回答用户的问题。
+        cfg = _get_language_config(language)
+        return f"""以下是一个视频的字幕内容，请根据这些内容回答用户的问题，使用{cfg['name']}回答。
 
 视频字幕内容：
 {truncated}
