@@ -115,6 +115,12 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/quota")
+async def get_quota(request: Request):
+    """查询当前客户端今日剩余 AI 额度，不消耗额度，前端用来在按钮上显示剩余次数"""
+    return {"remaining": quota.remaining(_client_id(request)), "limit": quota.FREE_DAILY_LIMIT}
+
+
 @app.post("/api/parse")
 async def parse_video(req: ParseRequest):
     try:

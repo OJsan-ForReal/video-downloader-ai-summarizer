@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { marked } from 'marked'
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
-import { summarizeVideo, chatWithVideo } from '../api/summarize'
+import { summarizeVideo, chatWithVideo, getQuota } from '../api/summarize'
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -55,7 +55,22 @@ function LanguageField({ label, value, onChange, disabled, options, size = 'sm' 
   )
 }
 
-function StartScreen({ sourceLanguage, setSourceLanguage, language, setLanguage, onStart }) {
+function QuotaDots({ remaining, limit }) {
+  if (remaining === null) return null
+  return (
+    <div className="flex items-center gap-1.5">
+      {Array.from({ length: limit }).map((_, i) => (
+        <span
+          key={i}
+          className={`h-1.5 w-1.5 rounded-full transition-colors ${i < remaining ? 'bg-blue-500' : 'bg-slate-200'}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+function StartScreen({ sourceLanguage, setSourceLanguage, language, setLanguage, onStart, quotaRemaining, quotaLimit }) {
+  const exhausted = quotaRemaining === 0
   return (
     <div className="flex flex-col items-center gap-7 px-6 py-16 text-center sm:px-10">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
@@ -85,15 +100,30 @@ function StartScreen({ sourceLanguage, setSourceLanguage, language, setLanguage,
         />
       </div>
 
-      <button
-        onClick={onStart}
-        className="flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11.98 2 9.7 8.6 3 11l6.7 2.3 2.28 6.7 2.3-6.7L21 11l-6.72-2.4L11.98 2Z" />
-        </svg>
-        开始总结
-      </button>
+      {exhausted ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-7 py-3 text-sm font-medium text-amber-700">
+          今日 AI 额度已用完，请明天再来
+        </div>
+      ) : (
+        <button
+          onClick={onStart}
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.98 2 9.7 8.6 3 11l6.7 2.3 2.28 6.7 2.3-6.7L21 11l-6.72-2.4L11.98 2Z" />
+          </svg>
+          开始总结
+        </button>
+      )}
+
+      {quotaRemaining !== null && (
+        <div className="flex flex-col items-center gap-1.5">
+          <QuotaDots remaining={quotaRemaining} limit={quotaLimit} />
+          <p className="text-xs text-slate-400">
+            今日还可使用 {quotaRemaining} / {quotaLimit} 次（总结与问答共用）
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -167,6 +197,18 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('正在提取视频字幕...')
+
+  // 今日剩余 AI 额度（总结+问答共用），null = 还没查到
+  const [quotaRemaining, setQuotaRemaining] = useState(null)
+  const [quotaLimit, setQuotaLimit] = useState(3)
+
+  const refreshQuota = useCallback(() => {
+    getQuota()
+      .then((q) => { setQuotaRemaining(q.remaining); setQuotaLimit(q.limit) })
+      .catch(() => { /* 查额度失败不影响主流程，静默忽略 */ })
+  }, [])
+
+  useEffect(() => { refreshQuota() }, [refreshQuota])
 
   const [summaryText, setSummaryText] = useState('')
   const [subtitleData, setSubtitleData] = useState({ segments: [], has_subtitle: false })
@@ -253,10 +295,11 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
             if (cancelled) return
             try { setMindmapMarkdown(JSON.parse(data).markdown || '') } catch { /* ignore */ }
           },
-          done: () => { if (!cancelled) setLoading(false) },
+          done: () => { if (!cancelled) { setLoading(false); refreshQuota() } },
           error: (data) => {
             if (cancelled) return
             setLoading(false)
+            refreshQuota()
             try {
               const parsed = JSON.parse(data)
               alert(parsed.message || '总结失败')
@@ -275,7 +318,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
 
     startSummarize()
     return () => { cancelled = true }
-  }, [started, videoUrl, language, sourceLanguage])
+  }, [started, videoUrl, language, sourceLanguage, refreshQuota])
 
   function toggleFullscreen() {
     if (!mindmapContainerRef.current) return
@@ -474,12 +517,14 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
         done: () => {
           updateLastMessage((m) => ({ ...m, loading: false }))
           setChatLoading(false)
+          refreshQuota()
         },
         error: (data) => {
           let message = '回答失败'
           try { message = JSON.parse(data).message || message } catch { /* ignore */ }
           updateLastMessage((m) => ({ ...m, content: '❌ ' + message, loading: false }))
           setChatLoading(false)
+          refreshQuota()
         },
       })
     } catch (err) {
@@ -497,24 +542,34 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
           language={language}
           setLanguage={setLanguage}
           onStart={() => setStarted(true)}
+          quotaRemaining={quotaRemaining}
+          quotaLimit={quotaLimit}
         />
       ) : (
       <>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-5">
-        <LanguageField
-          label="视频原语言"
-          value={sourceLanguage}
-          onChange={setSourceLanguage}
-          disabled={loading}
-          options={SOURCE_LANGUAGES}
-        />
-        <LanguageField
-          label="总结语言"
-          value={language}
-          onChange={setLanguage}
-          disabled={loading}
-          options={LANGUAGES}
-        />
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <LanguageField
+            label="视频原语言"
+            value={sourceLanguage}
+            onChange={setSourceLanguage}
+            disabled={loading}
+            options={SOURCE_LANGUAGES}
+          />
+          <LanguageField
+            label="总结语言"
+            value={language}
+            onChange={setLanguage}
+            disabled={loading}
+            options={LANGUAGES}
+          />
+        </div>
+        {quotaRemaining !== null && (
+          <div className="flex items-center gap-1.5" title={`今日还可使用 ${quotaRemaining} / ${quotaLimit} 次（总结与问答共用）`}>
+            <QuotaDots remaining={quotaRemaining} limit={quotaLimit} />
+            <span className="text-xs text-slate-400">剩余 {quotaRemaining} 次</span>
+          </div>
+        )}
       </div>
 
       <div className="flex border-b border-slate-100">
@@ -707,24 +762,30 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
               ))}
             </div>
 
-            <div className="flex gap-2 pt-3 border-t border-slate-100">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendQuestion() } }}
-                type="text"
-                placeholder="输入你的问题..."
-                disabled={chatLoading}
-                className="flex-1 h-11 px-4 rounded-xl border border-slate-200 bg-white text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
-              />
-              <button
-                onClick={sendQuestion}
-                disabled={!chatInput.trim() || chatLoading}
-                className="h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                发送
-              </button>
-            </div>
+            {quotaRemaining === 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-700">
+                今日 AI 额度已用完，请明天再来
+              </div>
+            ) : (
+              <div className="flex gap-2 pt-3 border-t border-slate-100">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendQuestion() } }}
+                  type="text"
+                  placeholder="输入你的问题..."
+                  disabled={chatLoading}
+                  className="flex-1 h-11 px-4 rounded-xl border border-slate-200 bg-white text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
+                />
+                <button
+                  onClick={sendQuestion}
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  发送
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

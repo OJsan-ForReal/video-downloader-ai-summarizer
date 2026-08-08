@@ -54,6 +54,12 @@ async function handleSSEStream(response, callbacks) {
   dispatch()
 }
 
+export async function getQuota() {
+  const response = await fetch('/api/quota')
+  if (!response.ok) throw new Error(`请求失败: ${response.status}`)
+  return response.json()
+}
+
 export async function summarizeVideo(url, { language = 'zh-Hans', sourceLanguage = '' } = {}, callbacks = {}) {
   const response = await fetch('/api/summarize', {
     method: 'POST',
