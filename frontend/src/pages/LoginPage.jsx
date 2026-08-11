@@ -188,7 +188,7 @@ export default function LoginPage({ mode: initialMode = 'login' }) {
       <p>{t('nav.disclaimer')}</p>
       {/* TODO: 占位链接，等注册 Buy Me a Coffee 账号后替换成真实链接 */}
       <a
-        href="https://www.buymeacoffee.com/TODO_替换成真实用户名"
+        href="https://buymeacoffee.com/onlyforchag"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-white px-3 py-1 text-slate-500 transition-colors hover:border-teal-600 hover:text-teal-600"
