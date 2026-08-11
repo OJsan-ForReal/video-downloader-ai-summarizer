@@ -6,7 +6,7 @@ async function postJson(path, body) {
   })
   const data = await res.json()
   if (!res.ok) {
-    throw new Error(data.detail || '请求失败')
+    throw new Error(data.detail || 'PARSE_REQUEST_FAILED')
   }
   return data
 }
@@ -23,7 +23,7 @@ export async function downloadViaServer(url, formatId) {
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new Error(data.detail || '下载失败')
+    throw new Error(data.detail || 'DOWNLOAD_FAILED')
   }
   const disposition = res.headers.get('Content-Disposition') || ''
   const match = disposition.match(/filename="?([^"]+)"?/)

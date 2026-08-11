@@ -6,3 +6,6 @@ static-ffmpeg
 openai
 python-dotenv
 httpx
+fastapi-users[sqlalchemy,oauth]
+aiosqlite
+stripe

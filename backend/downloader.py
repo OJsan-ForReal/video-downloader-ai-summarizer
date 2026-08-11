@@ -3,8 +3,26 @@ import re
 import shutil
 import uuid
 from typing import Optional
+from urllib.parse import urlparse
 
 import yt_dlp
+
+# 这几个平台在云服务器机房IP上会被反爬拦截，需要走代理绕一下（走自建的反向隧道代理，
+# 见 自己学习开发/每阶段txt记录文件/ 里的说明），其他平台数据中心IP直连没问题，不用额外绕路
+PROXY_REQUIRED_HOSTS = ("youtube.com", "youtu.be", "bilibili.com", "b23.tv")
+
+
+def _needs_proxy(url: str) -> bool:
+    host = urlparse(url).hostname or ""
+    return any(host == h or host.endswith("." + h) for h in PROXY_REQUIRED_HOSTS)
+
+
+def _proxy_opts(url: str) -> dict:
+    proxy = os.getenv("YT_DLP_PROXY")
+    if not proxy or not _needs_proxy(url):
+        return {}
+    # 代理走的是家里临时开的隧道，随时可能没开着，给个短超时，别让请求一直卡住
+    return {"proxy": proxy, "socket_timeout": 15}
 
 
 def _find_ffmpeg_path() -> Optional[str]:
@@ -49,6 +67,7 @@ class VideoDownloader:
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
+            **_proxy_opts(url),
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -162,6 +181,7 @@ class VideoDownloader:
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
+            **_proxy_opts(url),
         }
         if self.has_ffmpeg:
             ydl_opts["ffmpeg_location"] = self.ffmpeg_path

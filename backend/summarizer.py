@@ -196,7 +196,7 @@ class SubtitleExtractor:
     @staticmethod
     def _download_audio(url: str, tmp_dir: str) -> Optional[str]:
         """下载视频音轨，有 ffmpeg 就顺便转成低码率 mp3（省体积、更容易压到 25MB 免费上限内）"""
-        from downloader import _find_ffmpeg_path
+        from downloader import _find_ffmpeg_path, _proxy_opts
 
         ydl_opts = {
             "quiet": True,
@@ -204,6 +204,7 @@ class SubtitleExtractor:
             "noplaylist": True,
             "format": "bestaudio/best",
             "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
+            **_proxy_opts(url),
         }
         ffmpeg_path = _find_ffmpeg_path()
         if ffmpeg_path:
@@ -308,6 +309,8 @@ class SubtitleExtractor:
         return m.group(1) if m else None
 
     def _get_video_info(self, url: str) -> dict:
+        from downloader import _proxy_opts
+
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
@@ -315,6 +318,7 @@ class SubtitleExtractor:
             "writesubtitles": True,
             "writeautomaticsub": True,
             "skip_download": True,
+            **_proxy_opts(url),
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -378,6 +382,8 @@ class SubtitleExtractor:
 
     def _download_and_parse(self, url: str, lang: str, sub_type: str) -> list:
         """通过 yt-dlp 下载字幕文件并解析为分段列表"""
+        from downloader import _proxy_opts
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             ydl_opts = {
                 "quiet": True,
@@ -389,6 +395,7 @@ class SubtitleExtractor:
                 "subtitleslangs": [lang],
                 "subtitlesformat": "vtt",
                 "outtmpl": os.path.join(tmp_dir, "subtitle"),
+                **_proxy_opts(url),
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])

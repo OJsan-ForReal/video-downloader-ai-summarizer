@@ -1,0 +1,214 @@
+{
+  "nav": {
+    "brand": "▶ Descarregador de Vídeo",
+    "pageTitle": "Descarregador de Vídeo",
+    "login": "Entrar / Registar",
+    "disclaimer": "Apenas para fins de aprendizagem técnica. Respeite os direitos de autor e os termos de serviço das plataformas.",
+    "buyMeCoffee": "Pague um café ao autor",
+    "copyright": "© 2026 Descarregador de Vídeo · All rights reserved.",
+    "adminPanel": "Administração",
+    "monthlyVisitors": "{{count}} visitantes este mês"
+  },
+  "seo": {
+    "home": {
+      "title": "Descarregador de Vídeo - Mais de 1800 Plataformas com Resumos de IA",
+      "description": "Descarregue vídeos e áudio do YouTube, Bilibili, X, Instagram, TikTok e mais de 1800 plataformas, com exportação em qualidade original. Gere resumos de vídeo com IA, mapas mentais e faça perguntas sobre o conteúdo. Sem anúncios, sem rastreamento."
+    },
+    "pricing": {
+      "title": "Planos e Preços - Descarregador de Vídeo",
+      "description": "Compare os planos Gratuito e Pro do Descarregador de Vídeo e desbloqueie mais resumos de IA e downloads em qualidade original 4K."
+    },
+    "profile": {
+      "title": "A Minha Conta - Descarregador de Vídeo",
+      "description": "Faça a gestão da sua conta, plano de assinatura e utilização diária de IA."
+    },
+    "verifyEmail": {
+      "title": "Verificar Email - Descarregador de Vídeo",
+      "description": "Verifique o seu email para ativar a sua conta no Descarregador de Vídeo."
+    },
+    "login": {
+      "title": "Entrar - Descarregador de Vídeo",
+      "description": "Entre na sua conta do Descarregador de Vídeo."
+    },
+    "register": {
+      "title": "Registar Conta - Descarregador de Vídeo",
+      "description": "Crie uma conta gratuita no Descarregador de Vídeo para começar a usar resumos de IA e downloads multi-plataforma."
+    }
+  },
+  "hero": {
+    "badge": "Mais de 1800 plataformas · Resumos de vídeo com IA · Sem anúncios",
+    "titlePrefix": "Cole o link, ",
+    "titleHighlight": "descarregue em segundos",
+    "subtitle": "YouTube / Bilibili / Twitter(X) e outras plataformas populares — basta um link",
+    "placeholder": "Cole o link do vídeo...",
+    "parsing": "A analisar...",
+    "parse": "Analisar"
+  },
+  "features": {
+    "items": [
+      { "title": "Mais de 1800 plataformas", "desc": "Baseado no yt-dlp, com suporte total para YouTube / Bilibili / X / Instagram e mais" },
+      { "title": "Resumos de vídeo com IA", "desc": "Gere resumos e mapas mentais com um clique, e faça várias perguntas sobre o conteúdo" },
+      { "title": "Download em qualidade original", "desc": "Lista automaticamente todas as resoluções disponíveis, até à qualidade da fonte" },
+      { "title": "Sem anúncios, sem rastreio", "desc": "Focado apenas no download — sem recolha de dados, sem anúncios" }
+    ]
+  },
+  "platformWall": {
+    "label": "Plataformas Suportadas",
+    "moreCaption": "e mais de 1800 outras plataformas"
+  },
+  "result": {
+    "tabVideoAudio": "Vídeo + Áudio (recomendado)",
+    "tabVideoOnly": "Apenas vídeo",
+    "tabAudioOnly": "Apenas áudio",
+    "downloading": "A descarregar...",
+    "download": "Descarregar",
+    "summarizing": "A resumir com IA...",
+    "aiSummarize": "Resumo com IA"
+  },
+  "pricing": {
+    "heading": "Passe a Pro e desbloqueie mais resumos com IA",
+    "alreadyPro": "Já é membro Pro",
+    "sandboxDemo": "Demonstração em modo sandbox — sem pagamento real envolvido",
+    "notOpenYet": "As subscrições online ainda não estão disponíveis neste ambiente de demonstração",
+    "perMonth": "/mês",
+    "free": {
+      "features": ["Downloads de vídeo/áudio ilimitados", "3 resumos com IA por dia", "Resolução padrão"]
+    },
+    "pro": {
+      "features": ["Downloads de vídeo/áudio ilimitados", "10 resumos com IA por dia", "Downloads em 4K na qualidade original", "Fila de download prioritária"]
+    },
+    "subscribed": "Subscrito",
+    "redirecting": "A redirecionar...",
+    "upgrade": "Passar a Pro",
+    "notOpen": "Ainda não disponível",
+    "currentPlan": "Plano atual"
+  },
+  "auth": {
+    "sellingPoints": [
+      { "title": "Mais de 1800 plataformas", "desc": "Suporte total para YouTube / Bilibili / X / Instagram e mais" },
+      { "title": "Resumos de vídeo com IA", "desc": "Gere resumos e mapas mentais com um clique, e faça várias perguntas sobre o conteúdo" },
+      { "title": "Sem anúncios, sem rastreio", "desc": "Focado apenas no download — sem recolha de dados, sem anúncios" }
+    ],
+    "headline": "Cole o link, descarregue em segundos",
+    "backToHome": "← Voltar ao início",
+    "loginTitle": "Entrar",
+    "registerTitle": "Criar conta",
+    "googleLogin": "Continuar com Google",
+    "redirecting": "A redirecionar...",
+    "orEmail": "ou com email",
+    "emailLabel": "Email",
+    "passwordLabel": "Palavra-passe",
+    "confirmPasswordLabel": "Confirmar palavra-passe",
+    "passwordHelper": "Mínimo de 8 caracteres",
+    "passwordMismatch": "As palavras-passe não coincidem",
+    "submitLogin": "Entrar",
+    "submitRegister": "Registar",
+    "submitting": "A processar...",
+    "noAccount": "Ainda não tem conta?",
+    "hasAccount": "Já tem conta?",
+    "switchToRegister": "Registe-se",
+    "switchToLogin": "Entrar",
+    "showPassword": "Mostrar palavra-passe",
+    "hidePassword": "Ocultar palavra-passe"
+  },
+  "profile": {
+    "backToHome": "← Voltar ao início",
+    "myAccount": "A Minha Conta",
+    "googleLinked": "Sessão iniciada com Google",
+    "emailPasswordLogin": "Login por email e palavra-passe",
+    "emailNotVerified": "Email ainda não verificado",
+    "verificationSent": "Email de verificação enviado — verifique a sua caixa de entrada",
+    "resend": "Reenviar",
+    "plan": "Plano de subscrição",
+    "proMember": "Membro Pro",
+    "freeMember": "Plano gratuito",
+    "autoRenew": "Renovação automática em {{date}}",
+    "upgradeToPro": "Passar a Pro",
+    "dailyQuota": "Quota de IA de hoje",
+    "remainingUses": "{{count}} restantes",
+    "quotaUnitSuffix": "",
+    "loading": "A carregar...",
+    "logout": "Terminar sessão",
+    "confirmLogout": "Confirma que quer terminar a sessão? Clique novamente para confirmar",
+    "checkoutSuccessPending": "Pagamento efetuado com sucesso! A confirmar o seu estado Pro — ficará ativo em poucos segundos…",
+    "checkoutSuccessConfirmed": "O Pro já está ativo!",
+    "checkoutSuccessDelayed": "Ainda em processamento — tente atualizar a página daqui a pouco",
+    "checkoutCanceled": "Pagamento cancelado"
+  },
+  "verifyEmail": {
+    "verifying": "A verificar...",
+    "missingToken": "O link de verificação não tem um parâmetro obrigatório",
+    "successTitle": "Email verificado com sucesso",
+    "goToProfile": "Ir para o meu perfil →",
+    "failTitle": "Falha na verificação",
+    "backToProfileRetry": "Voltar ao perfil para reenviar →"
+  },
+  "summary": {
+    "tabSummary": "Resumo",
+    "tabSubtitle": "Transcrição",
+    "tabMindmap": "Mapa Mental",
+    "tabQa": "Perguntas e Respostas",
+    "startTitle": "Resumo do vídeo com IA, com um clique",
+    "startSubtitle": "Extrai legendas automaticamente, gera um resumo e mapa mental, e permite fazer perguntas de seguimento sobre o conteúdo",
+    "sourceLanguageLabel": "Idioma original",
+    "summaryLanguageLabel": "Idioma do resumo",
+    "start": "Começar a resumir",
+    "quotaExhausted": "A quota de IA de hoje foi esgotada — volte amanhã",
+    "quotaRemainingHint": "Ainda pode usar {{remaining}} / {{limit}} vezes hoje (partilhado entre resumos e perguntas)",
+    "quotaRemainingShort": "{{remaining}} restantes",
+    "loadingExtractSubtitle": "A extrair as legendas do vídeo...",
+    "loadingAnalyzing": "A IA está a analisar o conteúdo do vídeo...",
+    "generatingMore": "A IA continua a gerar...",
+    "subtitleCount": "{{count}} linhas de legendas",
+    "subtitleTypeManual": "Legendas manuais",
+    "subtitleTypeWhisper": "Transcrição por IA",
+    "subtitleTypeAuto": "Legendas automáticas",
+    "downloadSubtitle": "Descarregar legendas",
+    "collapse": "Recolher",
+    "expand": "Expandir tudo",
+    "subtitleTooLong": "Este vídeo tem cerca de {{minutes}} minutos, o que excede a duração de transcrição suportada pela sua quota atual",
+    "noSubtitle": "Não há legendas disponíveis para este vídeo",
+    "extractingSubtitle": "A extrair legendas...",
+    "subtitleFormatSrt": "Legendas SRT",
+    "subtitleFormatVtt": "Legendas VTT",
+    "subtitleFormatTxt": "Texto simples",
+    "mindmapGenerating": "A gerar mapa mental...",
+    "mindmapNeedSummaryFirst": "Gere primeiro um resumo para ver o mapa mental",
+    "exitFullscreen": "Sair do ecrã inteiro",
+    "fullscreen": "Ecrã inteiro",
+    "pngExportFailed": "Falha ao exportar PNG — experimente descarregar em SVG",
+    "mindmapFileSuffix": " - Mapa Mental",
+    "subtitleFileSuffix": " - Legendas",
+    "defaultVideoTitle": "vídeo",
+    "qaEmptyHint": "Pergunte à IA qualquer coisa sobre este vídeo",
+    "qaEmptyExample": "por exemplo: \"Qual é a ideia principal deste vídeo?\"",
+    "qaInputPlaceholder": "Escreva a sua pergunta...",
+    "send": "Enviar",
+    "answerFailed": "Falha ao responder",
+    "requestFailedWithMessage": "Pedido falhou: {{message}}",
+    "summarizeFailedGeneric": "Falha ao resumir",
+    "summarizeFailedWithMessage": "Falha ao resumir: {{message}}",
+    "summarizeRequestFailedWithMessage": "Pedido de resumo falhou: {{message}}"
+  },
+  "errors": {
+    "REGISTER_USER_ALREADY_EXISTS": "Este email já está registado — experimente iniciar sessão",
+    "REGISTER_TOO_MANY_ACCOUNTS": "Foram criadas demasiadas contas a partir desta rede hoje. Tente novamente amanhã ou inicie sessão numa conta existente",
+    "LOGIN_BAD_CREDENTIALS": "Email ou palavra-passe incorretos",
+    "LOGIN_USER_NOT_VERIFIED": "Esta conta ainda não foi verificada",
+    "VERIFY_USER_BAD_TOKEN": "Este link de verificação é inválido ou expirou — peça um novo",
+    "VERIFY_USER_ALREADY_VERIFIED": "Esta conta já foi verificada",
+    "REGISTER_FAILED": "Falha no registo",
+    "LOGIN_FAILED": "Falha ao iniciar sessão",
+    "VERIFY_FAILED": "Falha na verificação",
+    "GOOGLE_AUTH_URL_FAILED": "Falha ao obter o link de início de sessão do Google",
+    "GOOGLE_LOGIN_FAILED": "Falha no início de sessão com Google",
+    "oauth_state_invalid": "Falha na validação do início de sessão com Google — tente novamente",
+    "google_profile_failed": "Falha ao obter os dados da sua conta Google — tente novamente",
+    "CHECKOUT_FAILED": "Falha ao criar sessão de pagamento",
+    "QUOTA_FETCH_FAILED": "Falha ao obter informação da quota",
+    "PARSE_REQUEST_FAILED": "Pedido falhou",
+    "DOWNLOAD_FAILED": "Falha no download",
+    "SUMMARIZE_REQUEST_FAILED": "Pedido de resumo falhou",
+    "CHAT_REQUEST_FAILED": "Pedido falhou"
+  }
+}

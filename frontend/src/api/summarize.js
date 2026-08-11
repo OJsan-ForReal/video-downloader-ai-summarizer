@@ -3,6 +3,8 @@
  * 使用原生 fetch + ReadableStream 处理 SSE 流式响应（POST 带 body，不能用 EventSource）
  */
 
+import { authHeaders } from './auth'
+
 async function handleSSEStream(response, callbacks) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -55,27 +57,27 @@ async function handleSSEStream(response, callbacks) {
 }
 
 export async function getQuota() {
-  const response = await fetch('/api/quota')
-  if (!response.ok) throw new Error(`请求失败: ${response.status}`)
+  const response = await fetch('/api/quota', { headers: authHeaders() })
+  if (!response.ok) throw new Error('QUOTA_FETCH_FAILED')
   return response.json()
 }
 
 export async function summarizeVideo(url, { language = 'zh-Hans', sourceLanguage = '' } = {}, callbacks = {}) {
   const response = await fetch('/api/summarize', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ url, language, source_language: sourceLanguage }),
   })
-  if (!response.ok) throw new Error(`请求失败: ${response.status}`)
+  if (!response.ok) throw new Error('SUMMARIZE_REQUEST_FAILED')
   await handleSSEStream(response, callbacks)
 }
 
 export async function chatWithVideo(url, question, subtitleText = '', { language = 'zh-Hans', sourceLanguage = '' } = {}, callbacks = {}) {
   const response = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ url, question, subtitle_text: subtitleText, language, source_language: sourceLanguage }),
   })
-  if (!response.ok) throw new Error(`请求失败: ${response.status}`)
+  if (!response.ok) throw new Error('CHAT_REQUEST_FAILED')
   await handleSSEStream(response, callbacks)
 }

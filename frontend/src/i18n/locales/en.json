@@ -1,0 +1,214 @@
+{
+  "nav": {
+    "brand": "▶ Video Downloader",
+    "pageTitle": "Video Downloader",
+    "login": "Log in / Sign up",
+    "disclaimer": "For technical learning purposes only. Please respect copyright and platform terms of service.",
+    "buyMeCoffee": "Buy the author a coffee",
+    "copyright": "© 2026 Video Downloader · All rights reserved.",
+    "adminPanel": "Admin",
+    "monthlyVisitors": "{{count}} visitors this month"
+  },
+  "seo": {
+    "home": {
+      "title": "Video Downloader - Download from 1800+ Platforms with AI Summaries",
+      "description": "Free online downloader for YouTube, Bilibili, X, Instagram, TikTok and 1800+ other platforms, with original-quality export. Generate AI video summaries, mind maps, and ask follow-up questions about the content. No ads, no tracking."
+    },
+    "pricing": {
+      "title": "Pricing - Video Downloader",
+      "description": "Compare the Free and Pro plans for Video Downloader, and unlock more AI summary credits plus 4K original-quality downloads."
+    },
+    "profile": {
+      "title": "My Account - Video Downloader",
+      "description": "Manage your account, membership plan, and today's remaining AI usage."
+    },
+    "verifyEmail": {
+      "title": "Verify Email - Video Downloader",
+      "description": "Verify your email to activate your Video Downloader account."
+    },
+    "login": {
+      "title": "Log In - Video Downloader",
+      "description": "Log in to your Video Downloader account."
+    },
+    "register": {
+      "title": "Sign Up - Video Downloader",
+      "description": "Create a free Video Downloader account to start using AI video summaries and multi-platform downloads."
+    }
+  },
+  "hero": {
+    "badge": "1800+ platforms supported · AI video summaries · No ads",
+    "titlePrefix": "Paste a link, ",
+    "titleHighlight": "download in seconds",
+    "subtitle": "YouTube / Bilibili / Twitter(X) and other major platforms — one link is all it takes",
+    "placeholder": "Paste a video link...",
+    "parsing": "Parsing...",
+    "parse": "Parse"
+  },
+  "features": {
+    "items": [
+      { "title": "1800+ platforms", "desc": "Powered by yt-dlp, full support for YouTube / Bilibili / X / Instagram and more" },
+      { "title": "AI video summaries", "desc": "One click to generate summaries and mind maps, plus multi-turn Q&A about the content" },
+      { "title": "Original quality downloads", "desc": "Automatically lists all available resolutions, up to source quality" },
+      { "title": "No ads, no tracking", "desc": "Focused purely on downloading — no user data collection, no ads" }
+    ]
+  },
+  "platformWall": {
+    "label": "Supported Platforms",
+    "moreCaption": "and 1800+ other platforms"
+  },
+  "result": {
+    "tabVideoAudio": "Video + Audio (recommended)",
+    "tabVideoOnly": "Video only",
+    "tabAudioOnly": "Audio only",
+    "downloading": "Downloading...",
+    "download": "Download",
+    "summarizing": "AI summarizing...",
+    "aiSummarize": "AI Summary"
+  },
+  "pricing": {
+    "heading": "Upgrade to Pro for more AI summaries",
+    "alreadyPro": "You're already a Pro member",
+    "sandboxDemo": "Sandbox demo mode — no real payment involved",
+    "notOpenYet": "Online subscriptions aren't open in this demo environment yet",
+    "perMonth": "/mo",
+    "free": {
+      "features": ["Unlimited video/audio downloads", "3 AI summaries per day", "Standard resolution"]
+    },
+    "pro": {
+      "features": ["Unlimited video/audio downloads", "10 AI summaries per day", "4K original quality downloads", "Priority download queue"]
+    },
+    "subscribed": "Subscribed",
+    "redirecting": "Redirecting...",
+    "upgrade": "Upgrade to Pro",
+    "notOpen": "Not available yet",
+    "currentPlan": "Current plan"
+  },
+  "auth": {
+    "sellingPoints": [
+      { "title": "1800+ platforms", "desc": "Full support for YouTube / Bilibili / X / Instagram and more" },
+      { "title": "AI video summaries", "desc": "One click to generate summaries and mind maps, plus multi-turn Q&A about the content" },
+      { "title": "No ads, no tracking", "desc": "Focused purely on downloading — no user data collection, no ads" }
+    ],
+    "headline": "Paste a link, download in seconds",
+    "backToHome": "← Back to home",
+    "loginTitle": "Log in",
+    "registerTitle": "Create an account",
+    "googleLogin": "Continue with Google",
+    "redirecting": "Redirecting...",
+    "orEmail": "or with email",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "confirmPasswordLabel": "Confirm password",
+    "passwordHelper": "At least 8 characters",
+    "passwordMismatch": "Passwords don't match",
+    "submitLogin": "Log in",
+    "submitRegister": "Sign up",
+    "submitting": "Processing...",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "switchToRegister": "Sign up",
+    "switchToLogin": "Log in",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "profile": {
+    "backToHome": "← Back to home",
+    "myAccount": "My Account",
+    "googleLinked": "Signed in with Google",
+    "emailPasswordLogin": "Email & password login",
+    "emailNotVerified": "Email not verified yet",
+    "verificationSent": "Verification email sent — check your inbox",
+    "resend": "Resend",
+    "plan": "Membership plan",
+    "proMember": "Pro member",
+    "freeMember": "Free plan",
+    "autoRenew": "Renews automatically on {{date}}",
+    "upgradeToPro": "Upgrade to Pro",
+    "dailyQuota": "Today's AI quota",
+    "remainingUses": "{{count}} left",
+    "quotaUnitSuffix": "",
+    "loading": "Loading...",
+    "logout": "Log out",
+    "confirmLogout": "Log out for sure? Click again to confirm",
+    "checkoutSuccessPending": "Payment successful! Confirming your Pro status — this will take effect in a few seconds…",
+    "checkoutSuccessConfirmed": "Pro is now active!",
+    "checkoutSuccessDelayed": "Still processing — try refreshing the page shortly",
+    "checkoutCanceled": "Payment canceled"
+  },
+  "verifyEmail": {
+    "verifying": "Verifying...",
+    "missingToken": "The verification link is missing a required parameter",
+    "successTitle": "Email verified successfully",
+    "goToProfile": "Go to my profile →",
+    "failTitle": "Verification failed",
+    "backToProfileRetry": "Back to profile to resend →"
+  },
+  "summary": {
+    "tabSummary": "Summary",
+    "tabSubtitle": "Transcript",
+    "tabMindmap": "Mind Map",
+    "tabQa": "AI Q&A",
+    "startTitle": "AI-powered video summary, one click away",
+    "startSubtitle": "Automatically extracts subtitles, generates a summary and mind map, and lets you ask follow-up questions about the content",
+    "sourceLanguageLabel": "Source language",
+    "summaryLanguageLabel": "Summary language",
+    "start": "Start summarizing",
+    "quotaExhausted": "Today's AI quota is used up — please come back tomorrow",
+    "quotaRemainingHint": "{{remaining}} / {{limit}} uses left today (shared between summaries and Q&A)",
+    "quotaRemainingShort": "{{remaining}} left",
+    "loadingExtractSubtitle": "Extracting video subtitles...",
+    "loadingAnalyzing": "AI is analyzing the video content...",
+    "generatingMore": "AI is still generating...",
+    "subtitleCount": "{{count}} subtitle lines",
+    "subtitleTypeManual": "Manual subtitles",
+    "subtitleTypeWhisper": "AI transcription",
+    "subtitleTypeAuto": "Auto-generated subtitles",
+    "downloadSubtitle": "Download subtitles",
+    "collapse": "Collapse",
+    "expand": "Expand all",
+    "subtitleTooLong": "This video is about {{minutes}} minutes long, which exceeds the transcription length supported by your current quota",
+    "noSubtitle": "No subtitles are available for this video",
+    "extractingSubtitle": "Extracting subtitles...",
+    "subtitleFormatSrt": "SRT subtitles",
+    "subtitleFormatVtt": "VTT subtitles",
+    "subtitleFormatTxt": "Plain text",
+    "mindmapGenerating": "Generating mind map...",
+    "mindmapNeedSummaryFirst": "Generate a summary first to view the mind map",
+    "exitFullscreen": "Exit fullscreen",
+    "fullscreen": "Fullscreen",
+    "pngExportFailed": "PNG export failed — please try the SVG download instead",
+    "mindmapFileSuffix": " - Mind Map",
+    "subtitleFileSuffix": " - Subtitles",
+    "defaultVideoTitle": "video",
+    "qaEmptyHint": "Ask the AI anything about this video",
+    "qaEmptyExample": "e.g. \"What's the main point of this video?\"",
+    "qaInputPlaceholder": "Type your question...",
+    "send": "Send",
+    "answerFailed": "Failed to answer",
+    "requestFailedWithMessage": "Request failed: {{message}}",
+    "summarizeFailedGeneric": "Summarization failed",
+    "summarizeFailedWithMessage": "Summarization failed: {{message}}",
+    "summarizeRequestFailedWithMessage": "Summarization request failed: {{message}}"
+  },
+  "errors": {
+    "REGISTER_USER_ALREADY_EXISTS": "This email is already registered — try logging in instead",
+    "REGISTER_TOO_MANY_ACCOUNTS": "Too many accounts have been registered from this network today. Please try again tomorrow, or log in to an existing account",
+    "LOGIN_BAD_CREDENTIALS": "Incorrect email or password",
+    "LOGIN_USER_NOT_VERIFIED": "This account hasn't been verified yet",
+    "VERIFY_USER_BAD_TOKEN": "This verification link is invalid or expired — try requesting a new one",
+    "VERIFY_USER_ALREADY_VERIFIED": "This account is already verified",
+    "REGISTER_FAILED": "Sign up failed",
+    "LOGIN_FAILED": "Log in failed",
+    "VERIFY_FAILED": "Verification failed",
+    "GOOGLE_AUTH_URL_FAILED": "Failed to get the Google sign-in link",
+    "GOOGLE_LOGIN_FAILED": "Google sign-in failed",
+    "oauth_state_invalid": "Google sign-in validation failed — please try again",
+    "google_profile_failed": "Failed to fetch your account info from Google — please try again",
+    "CHECKOUT_FAILED": "Failed to create checkout session",
+    "QUOTA_FETCH_FAILED": "Failed to fetch quota info",
+    "PARSE_REQUEST_FAILED": "Request failed",
+    "DOWNLOAD_FAILED": "Download failed",
+    "SUMMARIZE_REQUEST_FAILED": "Summarization request failed",
+    "CHAT_REQUEST_FAILED": "Request failed"
+  }
+}

@@ -2,6 +2,23 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* 品牌色："D · Signal"方向，数字青。覆盖 Tailwind 内置 teal 色板的具体数值，
+   这样代码里照常写 bg-teal-600 这些标准类名，但渲染出来是选定的这套青色，
+   不用每处都手写自定义色值 */
+@theme {
+  --color-teal-50: #f0fbf8;
+  --color-teal-100: #e1f8f2;
+  --color-teal-200: #c4f1e7;
+  --color-teal-300: #9ce7da;
+  --color-teal-400: #6dd9c8;
+  --color-teal-500: #3fc7b6;
+  --color-teal-600: #0eb5a3;
+  --color-teal-700: #0b9483;
+  --color-teal-800: #0a7a6c;
+  --color-teal-900: #0a5f55;
+  --color-teal-950: #06342e;
+}
+
 :root {
   color-scheme: light;
 }
@@ -24,4 +41,43 @@ body {
 .mindmap-wrapper foreignObject div {
   font: 300 16px/20px "Inter", sans-serif;
   color: #333;
+}
+
+/* 登录/注册切换时的淡入过渡，key 变化触发重新挂载时自动播放一次 */
+@keyframes auth-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.auth-transition {
+  animation: auth-fade-in 0.22s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-transition { animation: none; }
+}
+
+/* 支持平台墙：logo 无缝横向滚动。轨道内容是平台列表复制两份首尾相接，
+   位移正好 -50% 时第二份刚好顶上第一份原来的位置，循环不露拼接痕迹 */
+@keyframes platform-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.platform-marquee-track {
+  animation: platform-marquee 32s linear infinite;
+}
+.platform-marquee-track:hover {
+  animation-play-state: paused;
+}
+/* 两侧渐隐遮罩，滚动内容进出画面更柔和，不是生硬裁切 */
+.platform-marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+
+/* 精细虚线分隔：不用浏览器原生 border-dashed（默认的方点在不同浏览器渲染粗细不一致，
+   显得廉价），改用渐变自己画点划间距，两端再做渐隐，虚线不会生硬地在边缘被截断 */
+.dashed-divider {
+  height: 1.5px;
+  background-image: repeating-linear-gradient(to right, #cbd5e1 0, #cbd5e1 6px, transparent 6px, transparent 13px);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
 }

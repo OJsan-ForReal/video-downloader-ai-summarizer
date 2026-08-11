@@ -13,29 +13,35 @@ from threading import Lock
 # 每次成功触发总结算 1 次，每问一个问题也算 1 次
 FREE_DAILY_LIMIT = 3
 
+# 注册不用验证邮箱、不花钱，如果不限制，账号额度反而变成了绕过 IP 限流的漏洞——
+# 疯狂注册小号，每个号都能白嫖一遍 AI 额度。这个限制的是"同一个 IP 一天能注册几个新账号"，
+# 跟上面的 AI 调用额度是两回事。只针对邮箱+密码注册——Google 登录走的是另一条代码路径，
+# 不经过这个检查，不受此限制（伪造 Google 账号的成本本来就比伪造邮箱高很多）
+MAX_REGISTRATIONS_PER_IP_PER_DAY = 3
+
 _lock = Lock()
 _usage: dict[str, tuple[date, int]] = {}
 
 
-def consume(identifier: str) -> bool:
+def consume(identifier: str, limit: int = FREE_DAILY_LIMIT) -> bool:
     """尝试消耗一次额度。额度足够则消耗并返回 True；已用完则不消耗，返回 False"""
     today = date.today()
     with _lock:
         last_date, count = _usage.get(identifier, (today, 0))
         if last_date != today:
             count = 0
-        if count >= FREE_DAILY_LIMIT:
+        if count >= limit:
             _usage[identifier] = (today, count)
             return False
         _usage[identifier] = (today, count + 1)
         return True
 
 
-def remaining(identifier: str) -> int:
+def remaining(identifier: str, limit: int = FREE_DAILY_LIMIT) -> int:
     """查询今日剩余额度，不消耗"""
     today = date.today()
     with _lock:
         last_date, count = _usage.get(identifier, (today, 0))
         if last_date != today:
-            return FREE_DAILY_LIMIT
-        return max(0, FREE_DAILY_LIMIT - count)
+            return limit
+        return max(0, limit - count)
