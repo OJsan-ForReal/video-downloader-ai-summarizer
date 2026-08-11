@@ -213,3 +213,11 @@ No raw IP address is ever written to disk. Visits are recorded as
 constraint doing same-day dedup. The public endpoint only ever returns an
 aggregate count for the current month; nothing in the schema can be reversed
 back to an individual visitor.
+
+## Acknowledgments
+
+The download core is built entirely on top of
+[**yt-dlp**](https://github.com/yt-dlp/yt-dlp) — this project wraps it with an
+API, an AI layer, and a product around it, but the actual extraction/download
+work for every supported site is yt-dlp's. Full credit to that project and
+its contributors.
