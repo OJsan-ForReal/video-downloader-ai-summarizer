@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Coffee } from 'lucide-react'
+import { Coffee, Menu, X } from 'lucide-react'
 import { Link, Route, Routes, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Avatar from './components/Avatar'
@@ -9,7 +9,9 @@ import PricingPage from './pages/PricingPage'
 import ProfilePage from './pages/ProfilePage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import AdminStatsPage from './pages/AdminStatsPage'
+import FeedbackPage from './pages/FeedbackPage'
 import ParallaxIllustration from './components/ParallaxIllustration'
+import FeedbackButton from './components/FeedbackButton'
 import { useAuth } from './context/AuthContext'
 import { ALL_LANGS, useCurrentLang, useLangPath, stripLangPrefix, withLang } from './i18n/langPath'
 import { trackVisit, getPublicStats } from './api/stats'
@@ -25,11 +27,11 @@ function AuthHeaderControls() {
   if (loading) return <div className="h-8 w-16" />
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {user ? (
-        <Link to={lp('/profile')} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors">
+        <Link to={lp('/profile')} className="flex min-w-0 items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors">
           <Avatar user={user} />
-          {user.email}
+          <span className="truncate max-w-[140px] sm:max-w-[180px]">{user.email}</span>
         </Link>
       ) : (
         <Link
@@ -86,6 +88,8 @@ function MainLayout() {
   const { t } = useTranslation()
   const lp = useLangPath()
   const { user } = useAuth()
+  const location = useLocation()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     // 每个浏览器会话只上报一次访问，不是每次切页面都上报（后端按天+IP去重，
@@ -95,24 +99,54 @@ function MainLayout() {
     trackVisit()
   }, [])
 
+  // 切换页面/切换语言后自动收起移动端菜单，避免切完语言菜单还悬在那儿挡内容
+  useEffect(() => { setMobileMenuOpen(false) }, [location.pathname])
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-transparent bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-slate-200 hover:shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_28px_rgba(15,23,42,0.1)]">
-        <div className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-          <Link to={lp('/')} className="text-slate-900 font-bold tracking-tight">{t('nav.brand')}</Link>
-          <div className="flex items-center gap-6">
-            {user?.is_superuser && (
-              <Link to={lp('/admin')} className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
-                {t('nav.adminPanel')}
-              </Link>
-            )}
-            <LanguageSwitcher />
-            <AuthHeaderControls />
+        <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6 sm:py-6">
+          <div className="flex items-center justify-between gap-3">
+            <Link to={lp('/')} className="flex-shrink-0 truncate text-slate-900 font-bold tracking-tight">
+              {t('nav.brand')}
+            </Link>
+
+            {/* 桌面端：横排展示；窄屏（PT语言文案更长，最容易在这个断点撑爆）收进汉堡菜单 */}
+            <div className="hidden min-w-0 items-center gap-6 sm:flex">
+              {user?.is_superuser && (
+                <Link to={lp('/admin')} className="whitespace-nowrap text-sm text-slate-500 hover:text-slate-900 transition-colors">
+                  {t('nav.adminPanel')}
+                </Link>
+              )}
+              <LanguageSwitcher />
+              <AuthHeaderControls />
+            </div>
+
+            <button
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label={t('nav.brand')}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 sm:hidden"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
+
+          {mobileMenuOpen && (
+            <div className="mt-4 flex flex-col items-start gap-4 border-t border-slate-100 pt-4 sm:hidden">
+              {user?.is_superuser && (
+                <Link to={lp('/admin')} className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
+                  {t('nav.adminPanel')}
+                </Link>
+              )}
+              <LanguageSwitcher />
+              <AuthHeaderControls />
+            </div>
+          )}
         </div>
       </header>
 
       <Outlet />
+      <FeedbackButton />
 
       <footer className="relative mt-8 border-t border-teal-100 bg-teal-50/60 py-10 text-center text-xs text-slate-700 space-y-3">
         <div
@@ -183,6 +217,7 @@ const routeChildren = (
       <Route path="profile" element={<ProfilePage />} />
       <Route path="verify-email" element={<VerifyEmailPage />} />
       <Route path="admin" element={<AdminStatsPage />} />
+      <Route path="feedback" element={<FeedbackPage />} />
     </Route>
   </>
 )

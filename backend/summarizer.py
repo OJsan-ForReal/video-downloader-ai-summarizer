@@ -51,10 +51,11 @@ def _get_language_config(language: str) -> dict:
 GROQ_LANGUAGE_MAP = {"zh-Hans": "zh", "zh-Hant": "zh", "en": "en", "pt": "pt"}
 GROQ_MAX_AUDIO_BYTES = 24 * 1024 * 1024  # 免费档上传上限 25MB，留 1MB 余量
 
-# Whisper 转录目前是要消耗 Groq 额度的付费功能，先用一个全局写死的时长上限做防护。
-# 现在还没有账号系统，所有人都按免费档算，所以取免费档的上限（10分钟）；
-# 等接入用户系统/套餐后，改成根据登录用户的付费状态动态取值（免费10分钟/付费30分钟）
-MAX_WHISPER_MINUTES = 10
+# Whisper 转录要消耗 Groq 额度，按付费状态分两档：免费10分钟，Pro/管理员120分钟。
+# 120分钟不是"真无限"——受限于 Groq Whisper 免费档单文件25MB的硬上限（GROQ_MAX_AUDIO_BYTES），
+# 配合下面 _download_audio() 压低的音频码率，120分钟音频约21.6MB，留了安全余量
+FREE_WHISPER_MINUTES = 10
+PRO_WHISPER_MINUTES = 120
 
 
 class SubtitleExtractor:
@@ -63,7 +64,7 @@ class SubtitleExtractor:
     # 通用兜底优先级：请求语言对应的候选轨道会被优先插到这个列表前面
     PREFERRED_LANGS = ["zh-Hans", "zh", "zh-CN", "zh-Hant", "zh-TW", "zh-HK", "en", "pt", "pt-BR", "pt-PT", "ja", "ko"]
 
-    def extract(self, url: str, source_lang: str = "") -> dict:
+    def extract(self, url: str, source_lang: str = "", max_minutes: int = FREE_WHISPER_MINUTES) -> dict:
         """
         提取视频字幕，返回:
         {
@@ -73,10 +74,13 @@ class SubtitleExtractor:
             "segments": [{"start": float, "end": float, "text": str}, ...],
             "full_text": str,
             "duration_minutes": float,  # 仅 subtitle_type == "too_long" 时存在
+            "upgrade_hint": bool,       # 仅 subtitle_type == "too_long" 时存在；卡在免费档上限时为 True
         }
 
         source_lang: 用户确认的视频原语言（如 "en"），用于优先匹配字幕轨道 + 作为 Whisper 转录的语言提示；
                      留空表示"不确定，自动识别"
+        max_minutes: 无字幕、需要走 Whisper 兜底转录时允许的最长时长，由调用方按登录用户的付费状态传入
+                     （免费10分钟 / Pro+管理员120分钟）；有平台字幕的视频不受此限制
         """
         if _is_bilibili_url(url):
             result = self._extract_bilibili(url)
@@ -117,14 +121,14 @@ class SubtitleExtractor:
                 }
 
         duration = info.get("duration") or 0
-        if duration > MAX_WHISPER_MINUTES * 60:
-            return self._too_long(duration)
+        if duration > max_minutes * 60:
+            return self._too_long(duration, upgrade_hint=max_minutes <= FREE_WHISPER_MINUTES)
 
         whisper_result = self._transcribe_with_whisper(url, source_lang)
         return whisper_result or self._empty()
 
     @staticmethod
-    def _too_long(duration: float) -> dict:
+    def _too_long(duration: float, upgrade_hint: bool) -> dict:
         return {
             "has_subtitle": False,
             "language": "",
@@ -132,6 +136,7 @@ class SubtitleExtractor:
             "segments": [],
             "full_text": "",
             "duration_minutes": round(duration / 60, 1),
+            "upgrade_hint": upgrade_hint,
         }
 
     @staticmethod
@@ -212,8 +217,10 @@ class SubtitleExtractor:
             ydl_opts["postprocessors"] = [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-                "preferredquality": "64",
             }]
+            # 单声道 + 24kbps：语音转录场景不需要立体声/高码率，这样压出来的文件小得多——
+            # Pro 档 120 分钟音频约 21.6MB，能留出余量不撞上 GROQ_MAX_AUDIO_BYTES（25MB）这个硬上限
+            ydl_opts["postprocessor_args"] = {"ffmpeg": ["-ac", "1", "-b:a", "24k"]}
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

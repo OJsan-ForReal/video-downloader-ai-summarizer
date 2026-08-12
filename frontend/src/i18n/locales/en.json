@@ -33,6 +33,10 @@
     "register": {
       "title": "Sign Up - Video Downloader",
       "description": "Create a free Video Downloader account to start using AI video summaries and multi-platform downloads."
+    },
+    "feedback": {
+      "title": "Feedback - Video Downloader",
+      "description": "Have a suggestion or ran into an issue? Send us your feedback."
     }
   },
   "hero": {
@@ -167,6 +171,7 @@
     "collapse": "Collapse",
     "expand": "Expand all",
     "subtitleTooLong": "This video is about {{minutes}} minutes long, which exceeds the transcription length supported by your current quota",
+    "upgradeToPro": "Upgrade to Pro for up to 120 minutes",
     "noSubtitle": "No subtitles are available for this video",
     "extractingSubtitle": "Extracting subtitles...",
     "subtitleFormatSrt": "SRT subtitles",
@@ -209,6 +214,23 @@
     "PARSE_REQUEST_FAILED": "Request failed",
     "DOWNLOAD_FAILED": "Download failed",
     "SUMMARIZE_REQUEST_FAILED": "Summarization request failed",
-    "CHAT_REQUEST_FAILED": "Request failed"
+    "CHAT_REQUEST_FAILED": "Request failed",
+    "FEEDBACK_SUBMIT_FAILED": "Failed to submit feedback, please try again later"
+  },
+  "feedback": {
+    "entry": "Feedback",
+    "pageTitle": "Feedback",
+    "pageSubtitle": "Tell us what's not working or what you'd like to see",
+    "titleLabel": "Title",
+    "titlePlaceholder": "A short summary",
+    "contentLabel": "Details",
+    "contentPlaceholder": "The more specific the better — e.g. what device/browser you were using",
+    "imageLabel": "Screenshot (optional)",
+    "uploadImage": "Upload image",
+    "imageTooLarge": "Image must be under 5MB",
+    "submit": "Submit feedback",
+    "submitting": "Submitting...",
+    "thanksTitle": "Thanks, got it!",
+    "thanksBody": "Your feedback matters to us — we read every message"
   }
 }

@@ -2,6 +2,7 @@ venv/
 __pycache__/
 *.pyc
 downloads/
+uploads/
 server.log
 .env
 app.db

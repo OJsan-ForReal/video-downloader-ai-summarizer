@@ -33,6 +33,10 @@
     "register": {
       "title": "Registar Conta - Descarregador de Vídeo",
       "description": "Crie uma conta gratuita no Descarregador de Vídeo para começar a usar resumos de IA e downloads multi-plataforma."
+    },
+    "feedback": {
+      "title": "Feedback - Descarregador de Vídeo",
+      "description": "Tem uma sugestão ou encontrou um problema? Envie-nos o seu feedback."
     }
   },
   "hero": {
@@ -167,6 +171,7 @@
     "collapse": "Recolher",
     "expand": "Expandir tudo",
     "subtitleTooLong": "Este vídeo tem cerca de {{minutes}} minutos, o que excede a duração de transcrição suportada pela sua quota atual",
+    "upgradeToPro": "Faça upgrade para o Pro e transcreva até 120 minutos",
     "noSubtitle": "Não há legendas disponíveis para este vídeo",
     "extractingSubtitle": "A extrair legendas...",
     "subtitleFormatSrt": "Legendas SRT",
@@ -209,6 +214,23 @@
     "PARSE_REQUEST_FAILED": "Pedido falhou",
     "DOWNLOAD_FAILED": "Falha no download",
     "SUMMARIZE_REQUEST_FAILED": "Pedido de resumo falhou",
-    "CHAT_REQUEST_FAILED": "Pedido falhou"
+    "CHAT_REQUEST_FAILED": "Pedido falhou",
+    "FEEDBACK_SUBMIT_FAILED": "Falha ao enviar feedback, tente novamente mais tarde"
+  },
+  "feedback": {
+    "entry": "Feedback",
+    "pageTitle": "Feedback",
+    "pageSubtitle": "Diga-nos o que não está a funcionar bem ou o que gostaria de ver",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Um breve resumo",
+    "contentLabel": "Detalhes",
+    "contentPlaceholder": "Quanto mais específico melhor — ex.: que dispositivo/navegador estava a usar",
+    "imageLabel": "Captura de ecrã (opcional)",
+    "uploadImage": "Carregar imagem",
+    "imageTooLarge": "A imagem não pode exceder 5MB",
+    "submit": "Enviar feedback",
+    "submitting": "A enviar...",
+    "thanksTitle": "Recebido, obrigado!",
+    "thanksBody": "O seu feedback é importante para nós — lemos todas as mensagens"
   }
 }

@@ -33,6 +33,10 @@
     "register": {
       "title": "Sign Up - Video Downloader",
       "description": "免费注册音视频下载器账号，开始使用 AI 视频总结与多平台下载。"
+    },
+    "feedback": {
+      "title": "Feedback - Video Downloader",
+      "description": "对网站有建议或遇到问题？给我们留言反馈。"
     }
   },
   "hero": {
@@ -167,6 +171,7 @@
     "collapse": "收起",
     "expand": "展开全部",
     "subtitleTooLong": "该视频时长约 {{minutes}} 分钟，超过当前额度支持的转录时长",
+    "upgradeToPro": "升级 Pro，支持最长 120 分钟",
     "noSubtitle": "该视频暂无可用字幕",
     "extractingSubtitle": "正在提取字幕...",
     "subtitleFormatSrt": "SRT 字幕",
@@ -209,6 +214,23 @@
     "PARSE_REQUEST_FAILED": "请求失败",
     "DOWNLOAD_FAILED": "下载失败",
     "SUMMARIZE_REQUEST_FAILED": "总结请求失败",
-    "CHAT_REQUEST_FAILED": "请求失败"
+    "CHAT_REQUEST_FAILED": "请求失败",
+    "FEEDBACK_SUBMIT_FAILED": "反馈提交失败，请稍后再试"
+  },
+  "feedback": {
+    "entry": "反馈建议",
+    "pageTitle": "反馈建议",
+    "pageSubtitle": "网站哪里不好用、遇到了什么问题，都可以告诉我们",
+    "titleLabel": "标题",
+    "titlePlaceholder": "简单描述一下",
+    "contentLabel": "详细内容",
+    "contentPlaceholder": "越具体越好，比如遇到问题时用的什么设备/浏览器",
+    "imageLabel": "截图（可选）",
+    "uploadImage": "上传图片",
+    "imageTooLarge": "图片大小不能超过 5MB",
+    "submit": "提交反馈",
+    "submitting": "提交中...",
+    "thanksTitle": "已收到，谢谢！",
+    "thanksBody": "你的反馈对我们很重要，我们会认真看每一条"
   }
 }

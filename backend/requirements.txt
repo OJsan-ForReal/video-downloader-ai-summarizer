@@ -9,3 +9,4 @@ httpx
 fastapi-users[sqlalchemy,oauth]
 aiosqlite
 stripe
+python-multipart

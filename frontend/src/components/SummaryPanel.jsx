@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { marked } from 'marked'
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
 import { FileText, Captions, Network, MessageCircle, Sparkles, Wand2 } from 'lucide-react'
 import { summarizeVideo, chatWithVideo, getQuota } from '../api/summarize'
+import { useLangPath } from '../i18n/langPath'
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -175,6 +177,7 @@ function triggerDownload(blob, filename) {
 
 export default function SummaryPanel({ videoUrl, videoTitle }) {
   const { t } = useTranslation()
+  const lp = useLangPath()
 
   const TABS = [
     { key: 'summary', label: t('summary.tabSummary'), icon: FileText },
@@ -681,11 +684,19 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
             </div>
           ) : !loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-              <p className="text-base">
+              <p className="text-base text-center">
                 {subtitleData.subtitle_type === 'too_long'
                   ? t('summary.subtitleTooLong', { minutes: subtitleData.duration_minutes })
                   : t('summary.noSubtitle')}
               </p>
+              {subtitleData.subtitle_type === 'too_long' && subtitleData.upgrade_hint && (
+                <Link
+                  to={lp('/pricing')}
+                  className="mt-4 rounded-full bg-teal-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
+                >
+                  {t('summary.upgradeToPro')}
+                </Link>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16">

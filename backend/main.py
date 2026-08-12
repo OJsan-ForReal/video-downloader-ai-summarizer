@@ -12,16 +12,18 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import quota
 from billing import PRO_DAILY_LIMIT, billing_router
-from db import User, create_db_and_tables, get_async_session
+from db import User, async_session_maker, create_db_and_tables, get_async_session
 from downloader import VideoDownloader
+from feedback import UPLOAD_DIR, feedback_router
 from schemas import UserCreate, UserRead, UserUpdate
-from stats import increment_counter, stats_router
-from summarizer import MAX_WHISPER_MINUTES
+from stats import cleanup_old_request_logs, increment_counter, log_download, log_open_endpoint_request, stats_router
+from summarizer import FREE_WHISPER_MINUTES, PRO_WHISPER_MINUTES
 from users import TooManyRegistrationsError, auth_backend, current_active_user_optional, fastapi_users, google_oauth_router
 
 downloader = VideoDownloader()
@@ -42,6 +44,13 @@ def _quota_limit(user: User | None) -> int:
     if user is not None and user.is_superuser:
         return ADMIN_DAILY_LIMIT
     return PRO_DAILY_LIMIT if user is not None and user.is_pro else quota.FREE_DAILY_LIMIT
+
+
+def _whisper_minute_limit(user: User | None) -> int:
+    """Whisper 转录兜底时允许的最长视频时长：管理员/Pro 会员 120 分钟，其余（含匿名访客）10 分钟"""
+    if user is not None and (user.is_superuser or user.is_pro):
+        return PRO_WHISPER_MINUTES
+    return FREE_WHISPER_MINUTES
 
 
 def _friendly_ai_error(action: str, e: Exception) -> str:
@@ -76,6 +85,8 @@ def _get_extractor():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
+    async with async_session_maker() as session:
+        await cleanup_old_request_logs(session)
     yield
     download_dir = downloader.DOWNLOAD_DIR
     if os.path.exists(download_dir):
@@ -105,6 +116,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 反馈图片的静态访问入口，UPLOAD_DIR 是 backend/uploads/feedback，挂载它的父目录
+# 这样管理后台拿到的 image_path（形如 "feedback/xxx.jpg"）能直接拼成 /uploads/feedback/xxx.jpg
+os.makedirs(os.path.dirname(UPLOAD_DIR), exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=os.path.dirname(UPLOAD_DIR)), name="uploads")
+
 @app.exception_handler(TooManyRegistrationsError)
 async def _too_many_registrations(request: Request, exc: TooManyRegistrationsError):
     return JSONResponse(status_code=429, content={"detail": "REGISTER_TOO_MANY_ACCOUNTS"})
@@ -117,6 +133,7 @@ app.include_router(google_oauth_router, prefix="/auth/google", tags=["auth"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"])
 app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
+app.include_router(feedback_router, prefix="/api/feedback", tags=["feedback"])
 # 密码重置现在还没接（跟邮箱验证是两个独立的路由，这个还用不上），需要用到再补
 
 
@@ -157,7 +174,14 @@ async def get_quota(request: Request, user: User | None = Depends(current_active
 
 
 @app.post("/api/parse")
-async def parse_video(req: ParseRequest):
+async def parse_video(
+    req: ParseRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+):
+    # /api/parse、/api/download 目前无登录无限流，谁都能直接调用——先不加拦截（用户明确
+    # 表示暂不做限流），只记一条 RequestLog，方便管理后台在异常流量出现时反查是哪个IP
+    await log_open_endpoint_request(session, request)
     try:
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, downloader.parse_video, req.url)
@@ -167,12 +191,19 @@ async def parse_video(req: ParseRequest):
 
 
 @app.post("/api/download")
-async def download_video(req: DownloadRequest):
+async def download_video(
+    req: DownloadRequest,
+    request: Request,
+    user: User | None = Depends(current_active_user_optional),
+    session: AsyncSession = Depends(get_async_session),
+):
+    await log_open_endpoint_request(session, request)
     try:
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None, downloader.download_video, req.url, req.format_id
         )
+        await log_download(session, request, user)
         return FileResponse(
             path=result["filepath"],
             filename=result["filename"],
@@ -210,7 +241,10 @@ async def summarize_video(
     try:
         loop = asyncio.get_event_loop()
         extractor = _get_extractor()
-        subtitle_data = await loop.run_in_executor(None, extractor.extract, req.url, req.source_language)
+        minute_limit = _whisper_minute_limit(user)
+        subtitle_data = await loop.run_in_executor(
+            None, extractor.extract, req.url, req.source_language, minute_limit
+        )
 
         yield ServerSentEvent(
             raw_data=json.dumps(subtitle_data, ensure_ascii=False),
@@ -221,7 +255,10 @@ async def summarize_video(
             subtitle_type = subtitle_data.get("subtitle_type")
             if subtitle_type == "too_long":
                 minutes = subtitle_data.get("duration_minutes", "?")
-                message = f"该视频时长约 {minutes} 分钟，超过当前额度支持的 {MAX_WHISPER_MINUTES} 分钟上限，无法转录总结"
+                if subtitle_data.get("upgrade_hint"):
+                    message = f"该视频时长约 {minutes} 分钟，超过免费档 {FREE_WHISPER_MINUTES} 分钟上限，升级 Pro 可支持最长 {PRO_WHISPER_MINUTES} 分钟"
+                else:
+                    message = f"该视频时长约 {minutes} 分钟，超过当前 {minute_limit} 分钟上限，无法转录总结"
             elif subtitle_type == "whisper_failed":
                 message = "语音转录服务当前请求过多或暂时不可用，请稍后再试"
             else:

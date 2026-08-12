@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, models, schemas
 from fastapi_users.authentication import AuthenticationBackend, BearerTransport, JWTStrategy
 from fastapi_users.db import SQLAlchemyUserDatabase
-from fastapi_users.exceptions import InvalidPasswordException
+from fastapi_users.exceptions import InvalidPasswordException, UserNotExists
 from fastapi_users.jwt import decode_jwt
 from fastapi_users.router.oauth import CSRF_TOKEN_KEY, STATE_TOKEN_AUDIENCE, generate_state_token
 from httpx_oauth.clients.google import GoogleOAuth2
@@ -168,6 +168,16 @@ async def google_callback(
     except (httpx.HTTPStatusError, KeyError, StopIteration):
         return RedirectResponse(f"{FRONTEND_URL}/?auth_error=google_profile_failed")
 
+    # fastapi-users 的 oauth_callback 内部创建新用户时不会走我们自己重写的 UserManager.create()
+    # （它直接调 self.user_db.create()），所以没法在那边打上"注册方式"的标记，只能在这里自己判断：
+    # 调用前先看这个邮箱存不存在——不存在才是真正意义上的"新用户从 Google 注册"；已存在的话，
+    # 不管是老用户直接登录，还是邮箱注册的老用户第一次绑定 Google，都不该覆盖他最初的注册方式
+    try:
+        await user_manager.get_by_email(account_email)
+        is_new_account = False
+    except UserNotExists:
+        is_new_account = True
+
     user = await user_manager.oauth_callback(
         google_oauth_client.name,
         token["access_token"],
@@ -179,6 +189,9 @@ async def google_callback(
         associate_by_email=True,
         is_verified_by_default=True,
     )
+
+    if is_new_account:
+        user = await user_manager.user_db.update(user, {"registration_method": "google"})
 
     if avatar_url and user.avatar_url != avatar_url:
         user = await user_manager.user_db.update(user, {"avatar_url": avatar_url})
