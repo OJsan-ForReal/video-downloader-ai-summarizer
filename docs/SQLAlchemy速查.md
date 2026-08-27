@@ -152,5 +152,96 @@ ON CONFLICT (key) DO UPDATE SET value = stat_counter.value + 1;
    echo=True)`，加`echo=True`之后，每次执行SQL都会打到后端日志里（临时调试用，平时别开着，
    日志会很吵）
 2. **直接看数据库文件**：`backend/app.db`就是真实的SQLite数据库文件，装一个"DB Browser
-   for SQLite"（图形界面工具）打开它，能看到最终生成的表结构和实际存的数据；或者命令行
-   `sqlite3 app.db ".schema"`直接打印所有表的建表语句
+   for SQLite"（[sqlitebrowser.org](https://sqlitebrowser.org/)，免费图形界面工具）打开
+   它，能像Excel表格一样浏览每张表的结构和真实数据，还能自己写SQL试着跑跑看；或者命令行
+   `sqlite3 app.db ".schema"`直接打印所有表的建表语句（这台电脑上命令行没装`sqlite3`，
+   用Python自带的`sqlite3`模块也能查，见下面）
+
+## 现在项目里7张表的真实建表SQL（2026-08-27抓取）
+
+这是直接从`backend/app.db`里读出来的、SQLAlchemy实际生成的建表语句，不是我手写的示例，
+是这个项目现在真实的样子：
+
+```sql
+CREATE TABLE user (
+	id CHAR(36) NOT NULL,
+	email VARCHAR(320) NOT NULL,
+	hashed_password VARCHAR(1024) NOT NULL,
+	is_active BOOLEAN NOT NULL,
+	is_superuser BOOLEAN NOT NULL,
+	is_verified BOOLEAN NOT NULL, avatar_url VARCHAR(500), is_pro BOOLEAN DEFAULT 0,
+	stripe_customer_id VARCHAR(255), stripe_subscription_id VARCHAR(255),
+	pro_expires_at DATETIME, registration_method VARCHAR(20) DEFAULT 'email',
+	PRIMARY KEY (id)
+);
+
+CREATE TABLE oauth_account (
+	id CHAR(36) NOT NULL,
+	user_id CHAR(36) NOT NULL,
+	oauth_name VARCHAR(100) NOT NULL,
+	access_token VARCHAR(1024) NOT NULL,
+	expires_at INTEGER,
+	refresh_token VARCHAR(1024),
+	account_id VARCHAR(320) NOT NULL,
+	account_email VARCHAR(320) NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(user_id) REFERENCES user (id) ON DELETE cascade
+);
+
+CREATE TABLE visit_log (
+	id INTEGER NOT NULL,
+	visit_date DATE NOT NULL,
+	ip_hash VARCHAR(64) NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_visit_date_iphash UNIQUE (visit_date, ip_hash)
+);
+
+CREATE TABLE stat_counter (
+	"key" VARCHAR(50) NOT NULL,
+	value INTEGER NOT NULL,
+	PRIMARY KEY ("key")
+);
+
+CREATE TABLE download_log (
+	id INTEGER NOT NULL,
+	created_at DATETIME NOT NULL,
+	user_id CHAR(36),
+	ip_hash VARCHAR(64) NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(user_id) REFERENCES user (id)
+);
+
+CREATE TABLE request_log (
+	id INTEGER NOT NULL,
+	created_at DATETIME NOT NULL,
+	path VARCHAR(255) NOT NULL,
+	ip VARCHAR(64) NOT NULL,
+	user_agent VARCHAR(500),
+	PRIMARY KEY (id)
+);
+
+CREATE TABLE feedback (
+	id INTEGER NOT NULL,
+	user_id CHAR(36),
+	title VARCHAR(200) NOT NULL,
+	content TEXT NOT NULL,
+	image_path VARCHAR(255),
+	created_at DATETIME NOT NULL,
+	is_read BOOLEAN NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(user_id) REFERENCES user (id)
+);
+```
+
+想自己随时重新抓一遍最新的（比如加了字幕表之后想再看看），跑这段Python（不需要装
+`sqlite3`命令行工具，用的是Python自带的`sqlite3`模块）：
+
+```python
+import sqlite3
+conn = sqlite3.connect('app.db')  # 在 backend 目录下跑
+cur = conn.cursor()
+cur.execute("SELECT name, sql FROM sqlite_master WHERE type='table'")
+for name, sql in cur.fetchall():
+    print('---', name, '---')
+    print(sql)
+```
