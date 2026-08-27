@@ -15,6 +15,33 @@ def _is_bilibili_url(url: str) -> bool:
     return "bilibili.com" in url or "b23.tv" in url
 
 
+def _format_ts(seconds: float) -> str:
+    """时间戳格式化成 mm:ss，超过1小时用 hh:mm:ss，给 AI 引用具体时间点用"""
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def _build_full_text(segments: list[dict]) -> str:
+    """拼接字幕全文，逐行带时间戳前缀（而不是纯文本 join），
+    这样总结/问答的 AI prompt 里才有时间点可引用"""
+    return "\n".join(f"[{_format_ts(seg['start'])}] {seg['text']}" for seg in segments)
+
+
+# 字幕问答的角色设定：诚实说不知道、不编造这条是硬性约束，放在 system 层而不是每次在
+# user prompt 里重复；时间点引用依赖 full_text 里带的 [mm:ss] 前缀（见 _build_full_text）
+SUBTITLE_CHAT_SYSTEM_PROMPT = (
+    "你是一个视频内容问答助手，专注于回答当前视频内容相关的问题。"
+    "根据提供的视频字幕内容来回答用户的问题。"
+    "如果问题超出视频内容范围、或者字幕内容中没有相关信息，请诚实告知用户你不知道，不要编造答案。"
+    "回答时如果能对应到具体时间点，优先引用（例如\"在03:12提到...\"）。"
+    "请使用用户提问所使用的语言回答，不要固定用某一种语言。"
+)
+
+
 # 支持的语言：AI 输出语言的显示名 + 总结小节标题 + 字幕轨道优先候选。
 # 以后要加新语言（比如日语、韩语），在这里加一个条目即可，前端选项列表同步加一项。
 DEFAULT_LANGUAGE = "zh-Hans"
@@ -110,7 +137,7 @@ class SubtitleExtractor:
                 # 字幕轨道存在但下载失败（网络问题/平台限流等），别把整个请求搞崩，
                 # 当作"没有可用字幕"处理，走到下面的 Whisper 兜底
                 segments = []
-            full_text = " ".join(seg["text"] for seg in segments)
+            full_text = _build_full_text(segments)
             if segments:
                 return {
                     "has_subtitle": True,
@@ -195,7 +222,7 @@ class SubtitleExtractor:
             "language": getattr(resp, "language", "") or source_lang,
             "subtitle_type": "whisper",
             "segments": segments,
-            "full_text": " ".join(seg["text"] for seg in segments),
+            "full_text": _build_full_text(segments),
         }
 
     @staticmethod
@@ -299,7 +326,7 @@ class SubtitleExtractor:
                     "text": content,
                 })
 
-            full_text = " ".join(seg["text"] for seg in segments)
+            full_text = _build_full_text(segments)
             return {
                 "has_subtitle": len(segments) > 0,
                 "language": best.get("lan", "zh"),
@@ -541,7 +568,7 @@ class VideoSummarizer:
         prompt = self._build_chat_prompt(subtitle_text, question, language)
         response = self._create(
             messages=[
-                {"role": "system", "content": "你是一个视频内容问答助手。根据提供的视频字幕内容来回答用户的问题。如果问题超出视频内容范围，请诚实告知。"},
+                {"role": "system", "content": SUBTITLE_CHAT_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
             stream=True,
@@ -598,17 +625,16 @@ class VideoSummarizer:
 
     @staticmethod
     def _build_chat_prompt(subtitle_text: str, question: str, language: str) -> str:
+        # language 参数暂时不在这里用——system prompt 已经要求"跟随用户提问语言回答"，
+        # 这里如果再强制指定 cfg['name'] 语言，两条指令会互相打架，所以不传
         truncated = subtitle_text[:12000]
-        cfg = _get_language_config(language)
-        return f"""以下是一个视频的字幕内容，请根据这些内容回答用户的问题，使用{cfg['name']}回答。
+        return f"""以下是一个视频的字幕内容，请根据这些内容回答用户的问题。
 
 视频字幕内容：
 {truncated}
 
 ---
-用户问题：{question}
-
-请基于视频内容给出准确、详细的回答。如果视频内容中没有相关信息，请诚实说明。"""
+用户问题：{question}"""
 
 
 def _time_to_seconds(time_str: str) -> float:
