@@ -14,7 +14,7 @@ from fastapi_users.db import (
     SQLAlchemyBaseUserTableUUID,
     SQLAlchemyUserDatabase,
 )
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -117,6 +117,27 @@ class RequestLog(Base):
     path: Mapped[str] = mapped_column(String(255))
     ip: Mapped[str] = mapped_column(String(64))
     user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class SubtitleSegment(Base):
+    """字幕持久化：同一个视频（video_id 是"平台标识:视频ID"，比如"bilibili:BV1xx"
+    或"youtube:dQw4w9WgXcQ"）第一次被总结/问答后，字幕存这里，以后再问同一个视频不用
+    重新下载字幕/重新调用 Whisper（省时间也省 Groq 额度）。
+
+    读写走 summarizer.py 里一个独立的同步 sqlite3 连接，不经过这里的异步 ORM session——
+    SubtitleExtractor.extract() 是在 run_in_executor 的线程池里跑的同步函数，硬塞异步
+    session 进去反而更麻烦，这张表定义留在这里只是为了让 create_db_and_tables() 统一建表"""
+    __tablename__ = "subtitle_segment"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    video_id: Mapped[str] = mapped_column(String(128), index=True)
+    segment_index: Mapped[int] = mapped_column(Integer)
+    start_time: Mapped[float] = mapped_column(Float)
+    end_time: Mapped[float] = mapped_column(Float)
+    text: Mapped[str] = mapped_column(Text)
+    language: Mapped[str] = mapped_column(String(20))
+    subtitle_type: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True, default=datetime.utcnow)
 
 
 class Feedback(Base):

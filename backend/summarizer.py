@@ -2,8 +2,10 @@
 
 import os
 import re
+import sqlite3
 import tempfile
 import time
+from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -29,6 +31,60 @@ def _build_full_text(segments: list[dict]) -> str:
     """拼接字幕全文，逐行带时间戳前缀（而不是纯文本 join），
     这样总结/问答的 AI prompt 里才有时间点可引用"""
     return "\n".join(f"[{_format_ts(seg['start'])}] {seg['text']}" for seg in segments)
+
+
+# 字幕持久化用的是独立的同步 sqlite3 连接，不是 db.py 里的异步 SQLAlchemy session——
+# SubtitleExtractor.extract() 跑在 run_in_executor 的线程池里，是同步函数，硬塞异步
+# session 进去反而更麻烦。表结构定义仍然在 db.py 的 SubtitleSegment 里，两边指向同一张表
+SUBTITLE_DB_PATH = "app.db"
+
+
+def _get_cached_segments(video_id: str) -> Optional[dict]:
+    """按 video_id 查有没有存过字幕，有就直接拼出跟 extract() 同样形状的结果字典返回"""
+    conn = sqlite3.connect(SUBTITLE_DB_PATH)
+    try:
+        rows = conn.execute(
+            "SELECT start_time, end_time, text, language, subtitle_type FROM subtitle_segment "
+            "WHERE video_id = ? ORDER BY segment_index",
+            (video_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return None
+
+    segments = [{"start": r[0], "end": r[1], "text": r[2]} for r in rows]
+    return {
+        "has_subtitle": True,
+        "language": rows[0][3],
+        "subtitle_type": rows[0][4],
+        "segments": segments,
+        "full_text": _build_full_text(segments),
+    }
+
+
+def _save_segments(video_id: str, segments: list[dict], language: str, subtitle_type: str) -> None:
+    """提取成功后存一份，供下次同一个视频直接命中缓存。先删旧的再插入整批新的，
+    避免同一个 video_id 反复问答时越攒越多重复行"""
+    if not segments:
+        return
+    now = datetime.utcnow().isoformat()
+    conn = sqlite3.connect(SUBTITLE_DB_PATH)
+    try:
+        conn.execute("DELETE FROM subtitle_segment WHERE video_id = ?", (video_id,))
+        conn.executemany(
+            "INSERT INTO subtitle_segment "
+            "(video_id, segment_index, start_time, end_time, text, language, subtitle_type, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (video_id, i, seg["start"], seg["end"], seg["text"], language, subtitle_type, now)
+                for i, seg in enumerate(segments)
+            ],
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # 字幕问答的角色设定：诚实说不知道、不编造这条是硬性约束，放在 system 层而不是每次在
@@ -110,11 +166,24 @@ class SubtitleExtractor:
                      （免费10分钟 / Pro+管理员120分钟）；有平台字幕的视频不受此限制
         """
         if _is_bilibili_url(url):
+            bvid = self._parse_bvid(url)
+            video_id = f"bilibili:{bvid}" if bvid else None
+            if video_id:
+                cached = _get_cached_segments(video_id)
+                if cached:
+                    return cached
+
             result = self._extract_bilibili(url)
             if result["has_subtitle"]:
+                if video_id:
+                    _save_segments(video_id, result["segments"], result["language"], result["subtitle_type"])
                 return result
 
         info = self._get_video_info(url)
+        video_id = f"{info.get('extractor_key', 'unknown')}:{info.get('id', '')}"
+        cached = _get_cached_segments(video_id)
+        if cached:
+            return cached
 
         manual_subs = {
             k: v for k, v in (info.get("subtitles") or {}).items() if k != "danmaku"
@@ -139,6 +208,7 @@ class SubtitleExtractor:
                 segments = []
             full_text = _build_full_text(segments)
             if segments:
+                _save_segments(video_id, segments, lang, sub_type)
                 return {
                     "has_subtitle": True,
                     "language": lang,
@@ -152,7 +222,10 @@ class SubtitleExtractor:
             return self._too_long(duration, upgrade_hint=max_minutes <= FREE_WHISPER_MINUTES)
 
         whisper_result = self._transcribe_with_whisper(url, source_lang)
-        return whisper_result or self._empty()
+        if whisper_result:
+            _save_segments(video_id, whisper_result["segments"], whisper_result["language"], whisper_result["subtitle_type"])
+            return whisper_result
+        return self._empty()
 
     @staticmethod
     def _too_long(duration: float, upgrade_hint: bool) -> dict:
