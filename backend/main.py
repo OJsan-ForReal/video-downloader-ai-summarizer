@@ -15,6 +15,7 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 
 import quota
 from billing import PRO_DAILY_LIMIT, billing_router
@@ -190,6 +191,13 @@ async def parse_video(
         raise HTTPException(status_code=400, detail=f"解析失败: {e}")
 
 
+def _cleanup_download_task(task_dir: str) -> None:
+    """FileResponse 把文件发完给用户之后才会跑这个（BackgroundTask），删掉这次下载任务
+    自己的临时目录（downloader.py 每次下载都用 uuid 建一个独立子目录）。之前只有整个
+    后端进程关闭时才清一次 downloads/，服务长期不重启的话下载过的文件会一直堆在磁盘上"""
+    shutil.rmtree(task_dir, ignore_errors=True)
+
+
 @app.post("/api/download")
 async def download_video(
     req: DownloadRequest,
@@ -204,10 +212,12 @@ async def download_video(
             None, downloader.download_video, req.url, req.format_id
         )
         await log_download(session, request, user)
+        task_dir = os.path.dirname(result["filepath"])
         return FileResponse(
             path=result["filepath"],
             filename=result["filename"],
             media_type="application/octet-stream",
+            background=BackgroundTask(_cleanup_download_task, task_dir),
         )
     except HTTPException:
         raise
