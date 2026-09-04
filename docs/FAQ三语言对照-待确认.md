@@ -127,14 +127,14 @@ Contas gratuitas têm 3 utilizações por dia, membros Pro têm 10 por dia (resu
 ## 分类：下载限制 / Download Limits / Limites de Download
 
 ### 12
-**中**：支持哪些格式和画质？
-视频+音频、仅视频、仅音频三种模式，具体画质取决于原视频源提供的最高分辨率。
+**中**：支持哪些格式和画质？能自己选文件大小吗？
+视频+音频、仅视频、仅音频三种模式；每种模式会列出多个画质/码率选项（比如音频最多会给5档码率，从高到低都有），可以按需选择体积更小的版本，具体可选项取决于原视频源实际提供的版本。
 
-**EN**：What formats and quality levels are supported?
-Three modes: video+audio, video only, or audio only. The available quality depends on the highest resolution the original video source provides.
+**EN**：What formats and quality levels are supported? Can I pick a smaller file size?
+Three modes: video+audio, video only, or audio only. Each mode lists multiple quality/bitrate options (for example, audio offers up to 5 bitrate tiers, from highest to lowest), so you can pick a smaller file if you want — the exact options available depend on what the original video source actually provides.
 
-**PT**：Que formatos e qualidades são suportados?
-Três modos: vídeo+áudio, apenas vídeo, ou apenas áudio. A qualidade disponível depende da resolução máxima oferecida pela fonte original do vídeo.
+**PT**：Que formatos e qualidades são suportados? Posso escolher um ficheiro mais pequeno?
+Três modos: vídeo+áudio, apenas vídeo, ou apenas áudio. Cada modo apresenta várias opções de qualidade/taxa de bits (por exemplo, o áudio oferece até 5 níveis de taxa de bits, do mais alto ao mais baixo), para que possa escolher um ficheiro mais pequeno se preferir — as opções exatas disponíveis dependem do que a fonte original do vídeo realmente fornece.
 
 ### 13
 **中**：能下载直播/正在进行中的直播吗？
