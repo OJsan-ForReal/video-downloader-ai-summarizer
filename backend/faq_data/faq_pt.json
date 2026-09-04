@@ -1,0 +1,104 @@
+[
+  {
+    "id": "faq_001",
+    "category": "general",
+    "question": "O que é este site?",
+    "answer": "Uma ferramenta de download de vídeos que suporta o YouTube, o Bilibili e mais de 1800 outras plataformas — descarregue vídeo ou áudio, e use IA para gerar resumos, mapas mentais e fazer perguntas sobre o conteúdo do vídeo."
+  },
+  {
+    "id": "faq_002",
+    "category": "general",
+    "question": "Preciso de criar uma conta para usar isto?",
+    "answer": "Não é necessária conta para descarregar. As funcionalidades de resumo/chat com IA exigem login (contas gratuitas têm 3 utilizações por dia)."
+  },
+  {
+    "id": "faq_003",
+    "category": "general",
+    "question": "Que plataformas são suportadas?",
+    "answer": "YouTube, Bilibili, Twitter(X) e mais de 1800 outras plataformas, com base no projeto open-source yt-dlp."
+  },
+  {
+    "id": "faq_004",
+    "category": "general",
+    "question": "Onde ficam os ficheiros descarregados?",
+    "answer": "Na pasta de downloads padrão do seu navegador — a localização exata depende das configurações do navegador."
+  },
+  {
+    "id": "faq_005",
+    "category": "general",
+    "question": "Os meus dados são guardados? É anónimo?",
+    "answer": "Não. Os ficheiros temporários usados para processar legendas/transcrição são eliminados imediatamente após o uso; os ficheiros de vídeo descarregados também são eliminados logo após serem enviados a si — nada fica guardado no nosso servidor a longo prazo."
+  },
+  {
+    "id": "faq_006",
+    "category": "ai",
+    "question": "Como funciona o resumo por IA?",
+    "answer": "Extrai as legendas do vídeo (legendas próprias da plataforma ou transcrição por IA), e usa um modelo de linguagem de grande escala para gerar uma visão geral, um esquema por secções e os pontos principais."
+  },
+  {
+    "id": "faq_007",
+    "category": "ai",
+    "question": "O que acontece se um vídeo não tiver legendas?",
+    "answer": "O sistema recorre automaticamente ao reconhecimento de voz por IA (Whisper) para transcrever o áudio. Se o vídeo exceder o limite de duração para transcrição, ou se o serviço de transcrição estiver temporariamente indisponível, será apresentada uma mensagem de erro e o resumo não será gerado."
+  },
+  {
+    "id": "faq_008",
+    "category": "ai",
+    "question": "Que idiomas de vídeo são suportados pelas legendas/resumo por IA?",
+    "answer": "Em teoria suporta vários idiomas, mas o chinês, o inglês e o português têm a maior precisão de reconhecimento — recomendamos usar vídeos num destes três idiomas."
+  },
+  {
+    "id": "faq_009",
+    "category": "ai",
+    "question": "Que idiomas são suportados no chat com IA?",
+    "answer": "Responde no mesmo idioma em que fizer a pergunta — não está limitado a chinês ou inglês."
+  },
+  {
+    "id": "faq_010",
+    "category": "ai",
+    "question": "Que vídeos não podem ser resumidos por IA?",
+    "answer": "Vídeos sem legendas e cuja duração também exceda o limite de transcrição por voz (10 minutos para contas gratuitas, 120 minutos para contas Pro/admin) não podem ser resumidos."
+  },
+  {
+    "id": "faq_011",
+    "category": "ai",
+    "question": "Quantas vezes posso usar o resumo/chat por IA por dia?",
+    "answer": "Contas gratuitas têm 3 utilizações por dia, membros Pro têm 10 por dia (resumo e chat partilham a mesma cota diária)."
+  },
+  {
+    "id": "faq_012",
+    "category": "download",
+    "question": "Que formatos e qualidades são suportados? Posso escolher um ficheiro mais pequeno?",
+    "answer": "Três modos: vídeo+áudio, apenas vídeo, ou apenas áudio. Cada modo apresenta várias opções de qualidade/taxa de bits (por exemplo, o áudio oferece até 5 níveis de taxa de bits, do mais alto ao mais baixo), para que possa escolher um ficheiro mais pequeno se preferir — as opções exatas disponíveis dependem do que a fonte original do vídeo realmente fornece."
+  },
+  {
+    "id": "faq_013",
+    "category": "download",
+    "question": "Posso descarregar transmissões em direto / streams em curso?",
+    "answer": "Não é suportado atualmente."
+  },
+  {
+    "id": "faq_014",
+    "category": "download",
+    "question": "Há limites de duração ou tamanho de ficheiro?",
+    "answer": "A funcionalidade de download em si não tem limites; a funcionalidade de transcrição por IA tem um limite de duração (ver \"Que vídeos não podem ser resumidos por IA?\")."
+  },
+  {
+    "id": "faq_015",
+    "category": "account",
+    "question": "Posso cancelar a subscrição a qualquer momento?",
+    "answer": "As subscrições são geridas através do Stripe e podem ser canceladas a qualquer momento — manterá os benefícios Pro até ao final do período de faturação atual."
+  },
+  {
+    "id": "faq_016",
+    "category": "account",
+    "question": "Que métodos de login são suportados?",
+    "answer": "Email + palavra-passe, ou início de sessão com um clique através do Google."
+  },
+  {
+    "id": "faq_017",
+    "category": "troubleshooting",
+    "question": "O que fazer se a análise/download falhar?",
+    "answer": "Algumas plataformas podem falhar ocasionalmente devido a restrições anti-bot, restrições regionais, ou vídeos que exigem login para ver. Tente novamente mais tarde, ou teste com outro link de vídeo para verificar se é um caso isolado."
+  }
+]

@@ -1,0 +1,104 @@
+[
+  {
+    "id": "faq_001",
+    "category": "general",
+    "question": "What is this website?",
+    "answer": "A video downloader supporting YouTube, Bilibili, and 1800+ other platforms — download video or audio, and use AI to generate video summaries, mind maps, and ask questions about the video's content."
+  },
+  {
+    "id": "faq_002",
+    "category": "general",
+    "question": "Do I need an account to use this?",
+    "answer": "No account is needed for downloading. AI summary/chat features require a login (free accounts get 3 uses per day)."
+  },
+  {
+    "id": "faq_003",
+    "category": "general",
+    "question": "Which platforms are supported?",
+    "answer": "YouTube, Bilibili, Twitter(X), and 1800+ other platforms, powered by the open-source yt-dlp project."
+  },
+  {
+    "id": "faq_004",
+    "category": "general",
+    "question": "Where do downloaded files go?",
+    "answer": "Your browser's default download folder — the exact location depends on your browser settings."
+  },
+  {
+    "id": "faq_005",
+    "category": "general",
+    "question": "Is my data retained? Is it anonymous?",
+    "answer": "No. Temporary files used for subtitle/transcription processing are deleted immediately after use; downloaded video files are also deleted right after being sent to you — nothing is kept on our server long-term."
+  },
+  {
+    "id": "faq_006",
+    "category": "ai",
+    "question": "How does AI summarization work?",
+    "answer": "It extracts the video's subtitles (either the platform's own captions or AI speech transcription), then uses a large language model to generate an overview, section-by-section outline, and key takeaways."
+  },
+  {
+    "id": "faq_007",
+    "category": "ai",
+    "question": "What happens if a video has no subtitles?",
+    "answer": "It automatically falls back to AI speech recognition (Whisper) to transcribe the audio. If the video exceeds the transcription time limit, or the transcription service is temporarily unavailable, you'll see an error message and no summary will be generated."
+  },
+  {
+    "id": "faq_008",
+    "category": "ai",
+    "question": "Which video languages does subtitle/AI summarization support?",
+    "answer": "It supports multiple languages in theory, but Chinese, English, and Portuguese give the most accurate results — we recommend using videos in one of these three languages."
+  },
+  {
+    "id": "faq_009",
+    "category": "ai",
+    "question": "What languages does the AI chat support?",
+    "answer": "It replies in whatever language you ask your question in — you're not limited to Chinese or English."
+  },
+  {
+    "id": "faq_010",
+    "category": "ai",
+    "question": "Which videos can't be summarized by AI?",
+    "answer": "Videos with no subtitles at all, whose length also exceeds the speech-transcription time limit (10 minutes for free accounts, 120 minutes for Pro/admin accounts), can't be summarized."
+  },
+  {
+    "id": "faq_011",
+    "category": "ai",
+    "question": "How many times can I use AI summary/chat per day?",
+    "answer": "Free accounts get 3 uses per day, Pro members get 10 per day (summary and chat share the same daily quota)."
+  },
+  {
+    "id": "faq_012",
+    "category": "download",
+    "question": "What formats and quality levels are supported? Can I pick a smaller file size?",
+    "answer": "Three modes: video+audio, video only, or audio only. Each mode lists multiple quality/bitrate options (for example, audio offers up to 5 bitrate tiers, from highest to lowest), so you can pick a smaller file if you want — the exact options available depend on what the original video source actually provides."
+  },
+  {
+    "id": "faq_013",
+    "category": "download",
+    "question": "Can I download live streams / ongoing broadcasts?",
+    "answer": "Not currently supported."
+  },
+  {
+    "id": "faq_014",
+    "category": "download",
+    "question": "Are there limits on video length or file size?",
+    "answer": "The download feature itself has no limits; the AI transcription feature does have a length limit (see \"Which videos can't be summarized by AI?\")."
+  },
+  {
+    "id": "faq_015",
+    "category": "account",
+    "question": "Can I cancel my subscription anytime?",
+    "answer": "Subscriptions are managed through Stripe and can be cancelled anytime — you'll keep Pro benefits until the end of the current billing period."
+  },
+  {
+    "id": "faq_016",
+    "category": "account",
+    "question": "What login methods are supported?",
+    "answer": "Email + password, or one-click sign-in with Google."
+  },
+  {
+    "id": "faq_017",
+    "category": "troubleshooting",
+    "question": "What if parsing/downloading fails?",
+    "answer": "Some platforms may occasionally fail due to anti-bot restrictions, regional restrictions, or videos requiring login to view. Try again later, or test with a different video link to see if it's an isolated case."
+  }
+]
