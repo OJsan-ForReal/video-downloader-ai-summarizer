@@ -161,16 +161,6 @@ A funcionalidade de download em si não tem limites; a funcionalidade de transcr
 ## 分类：账号与订阅 / Account & Subscription / Conta e Subscrição
 
 ### 15
-**中**：Pro会员多少钱？包含什么权益？
-Pro会员功能暂未开放，具体定价和权益敬请期待，我们会尽快完善。
-
-**EN**：How much does Pro membership cost? What's included?
-Pro membership isn't open yet — pricing and benefits are coming soon, stay tuned.
-
-**PT**：Quanto custa a subscrição Pro? O que inclui?
-A subscrição Pro ainda não está disponível — o preço e os benefícios serão anunciados em breve.
-
-### 16
 **中**：可以随时取消订阅吗？
 通过Stripe管理订阅，可以随时取消，取消后到当前计费周期结束前仍可使用Pro权益。
 
@@ -180,17 +170,7 @@ Subscriptions are managed through Stripe and can be cancelled anytime — you'll
 **PT**：Posso cancelar a subscrição a qualquer momento?
 As subscrições são geridas através do Stripe e podem ser canceladas a qualquer momento — manterá os benefícios Pro até ao final do período de faturação atual.
 
-### 17
-**中**：现在支持真实付费吗？
-目前支付功能处于测试阶段，暂不支持真实付费，敬请期待正式上线。
-
-**EN**：Does real payment work right now?
-Payments are currently in testing mode — real payments aren't supported yet, stay tuned for the official launch.
-
-**PT**：Os pagamentos reais funcionam neste momento?
-Os pagamentos estão atualmente em modo de teste — os pagamentos reais ainda não são suportados, aguarde o lançamento oficial.
-
-### 18
+### 16
 **中**：支持哪些登录方式？
 邮箱密码，或者Google账号一键登录。
 
@@ -204,7 +184,7 @@ Email + palavra-passe, ou início de sessão com um clique através do Google.
 
 ## 分类：故障排查 / Troubleshooting / Resolução de Problemas
 
-### 19
+### 17
 **中**：解析/下载失败了怎么办？
 部分平台可能因为反爬限制、地区限制、或视频需要登录才能查看等原因偶发失败，可以稍后重试，或换一个视频链接确认是否为个例。
 
