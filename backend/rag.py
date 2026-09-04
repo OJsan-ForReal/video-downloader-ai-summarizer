@@ -89,3 +89,26 @@ def delete_by_where(where: dict) -> None:
     避免旧内容和新内容混在一起被检索到）"""
     collection = get_collection()
     collection.delete(where=where)
+
+
+def is_healthy() -> bool:
+    """探活用：Chroma的持久化索引文件有可能损坏（比如进程异常崩溃、正好卡在写入索引
+    的中途），损坏后连最基础的count()都会抛异常。这里不假设"没报错就是好的"，是真的
+    执行一次操作确认。给main.py启动时探活用，配合reset_storage()做自愈"""
+    try:
+        get_collection().count()
+        return True
+    except Exception:
+        return False
+
+
+def reset_storage() -> None:
+    """清空整个持久化目录，重新开始。Chroma里存的数据全部是从别处能重新算出来的
+    派生数据（FAQ来自faq_data/*.json，字幕来自SubtitleSegment表），不是唯一保存的
+    原始数据，坏了直接推倒重建，比试图修复损坏的索引文件靠谱。调用方需要在这之后
+    自己把数据重新灌回去（faq.load_faq_into_chroma() + 字幕这边的重建函数）"""
+    global _collection
+    import shutil
+    _collection = None
+    if os.path.exists(CHROMA_PERSIST_DIR):
+        shutil.rmtree(CHROMA_PERSIST_DIR, ignore_errors=True)

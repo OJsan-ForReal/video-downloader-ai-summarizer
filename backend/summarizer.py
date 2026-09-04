@@ -12,6 +12,8 @@ import httpx
 import yt_dlp
 from openai import OpenAI
 
+import rag
+
 
 def _is_bilibili_url(url: str) -> bool:
     return "bilibili.com" in url or "b23.tv" in url
@@ -38,6 +40,38 @@ def _build_full_text(segments: list[dict]) -> str:
 # session 进去反而更麻烦。表结构定义仍然在 db.py 的 SubtitleSegment 里，两边指向同一张表
 SUBTITLE_DB_PATH = "app.db"
 
+# 长视频RAG检索用的分块窗口：字幕本身已经是segment（句子/短语级别）分好的，不需要再按
+# 字符数切，只按时间窗口合并相邻segment成chunk，避免单个chunk太碎、检索到的内容缺乏
+# 上下文。30秒是文档给的默认建议值，先用这个跑，后续根据实际检索效果再调整
+CHUNK_WINDOW_SECONDS = 30
+
+
+def _chunk_segments(segments: list[dict]) -> list[dict]:
+    """把segment列表按时间窗口合并成RAG检索用的chunk列表，每个chunk保留合并进去的
+    第一个segment的start、最后一个segment的end，供Chroma metadata记录时间范围用"""
+    if not segments:
+        return []
+    chunks = []
+    current: list[dict] = []
+    window_start = segments[0]["start"]
+    for seg in segments:
+        if current and seg["start"] - window_start >= CHUNK_WINDOW_SECONDS:
+            chunks.append(_merge_into_chunk(current))
+            current = []
+            window_start = seg["start"]
+        current.append(seg)
+    if current:
+        chunks.append(_merge_into_chunk(current))
+    return chunks
+
+
+def _merge_into_chunk(segs: list[dict]) -> dict:
+    return {
+        "text": " ".join(s["text"] for s in segs),
+        "start_time": segs[0]["start"],
+        "end_time": segs[-1]["end"],
+    }
+
 
 def _get_cached_segments(video_id: str) -> Optional[dict]:
     """按 video_id 查有没有存过字幕，有就直接拼出跟 extract() 同样形状的结果字典返回"""
@@ -61,6 +95,7 @@ def _get_cached_segments(video_id: str) -> Optional[dict]:
         "subtitle_type": rows[0][4],
         "segments": segments,
         "full_text": _build_full_text(segments),
+        "video_id": video_id,
     }
 
 
@@ -86,6 +121,52 @@ def _save_segments(video_id: str, segments: list[dict], language: str, subtitle_
     finally:
         conn.close()
 
+    # RAG检索用的向量库也要跟着更新，保持"字幕存一次，两个存储都更新"的逻辑在一起
+    _index_subtitle_chunks(video_id, segments)
+
+
+def _index_subtitle_chunks(video_id: str, segments: list[dict]) -> int:
+    """分块+写入Chroma，供 _save_segments（正常提取流程）和 rebuild_subtitle_rag_index
+    （Chroma索引损坏后的自愈重建）两处共用，不要各自维护一份重复逻辑。
+    先删这个video_id的旧chunk再写入新的，避免新旧内容混在一起被检索到"""
+    rag.delete_by_where({"video_id": video_id})
+    chunks = _chunk_segments(segments)
+    if chunks:
+        rag.add_documents(
+            ids=[f"{video_id}_chunk_{i}" for i in range(len(chunks))],
+            texts=[c["text"] for c in chunks],
+            metadatas=[
+                {
+                    "type": "subtitle",
+                    "video_id": video_id,
+                    "start_time": c["start_time"],
+                    "end_time": c["end_time"],
+                }
+                for c in chunks
+            ],
+        )
+    return len(chunks)
+
+
+def rebuild_subtitle_rag_index() -> int:
+    """把 subtitle_segment 表（持久化在SQLite，不受Chroma状态影响）里所有视频的字幕
+    重新分块、重新写入Chroma，返回重建的chunk总数。用于main.py启动时探活发现Chroma
+    索引损坏后的自愈重建——subtitle_segment表本身就是这次重建真正的数据来源"""
+    conn = sqlite3.connect(SUBTITLE_DB_PATH)
+    try:
+        video_ids = [
+            row[0] for row in conn.execute("SELECT DISTINCT video_id FROM subtitle_segment").fetchall()
+        ]
+    finally:
+        conn.close()
+
+    total = 0
+    for video_id in video_ids:
+        cached = _get_cached_segments(video_id)
+        if cached:
+            total += _index_subtitle_chunks(video_id, cached["segments"])
+    return total
+
 
 # 字幕问答的角色设定：诚实说不知道、不编造这条是硬性约束，放在 system 层而不是每次在
 # user prompt 里重复；时间点引用依赖 full_text 里带的 [mm:ss] 前缀（见 _build_full_text）
@@ -96,6 +177,40 @@ SUBTITLE_CHAT_SYSTEM_PROMPT = (
     "回答时如果能对应到具体时间点，优先引用（例如\"在03:12提到...\"）。"
     "请使用用户提问所使用的语言回答，不要固定用某一种语言。"
 )
+
+
+# 短视频问答"直接把全部字幕塞进prompt" vs 长视频"走RAG检索相关片段"的分界线，字符数近似。
+# 沿用原来chat场景一直在用的12000这个截断值（不是新拍的数字）——这个值已经在生产用了很久，
+# 对应当前FALLBACK_MODELS这些免费模型实际能稳定处理的上下文量、又留出了system prompt/
+# 历史对话/回复的空间。项目目前没有引入分词器依赖，中英文字符数和token数的换算关系虽然
+# 不完全线性，但这里只是一个"要不要走检索"的粗略分界线，不是精确的prompt裁剪，字符数
+# 近似够用，没必要为了这一个判断专门引入tokenizer这类新依赖
+CONTEXT_LIMIT_THRESHOLD = 12000
+
+# 长视频走RAG检索时取回的chunk数量：每个chunk覆盖约CHUNK_WINDOW_SECONDS秒的内容，
+# 5个chunk约2.5分钟，够覆盖问题相关的上下文，也不会把太多不相关内容塞进prompt稀释掉
+# 真正相关的部分
+RAG_TOP_K = 5
+
+
+def get_video_context(video_id: str, question: str, full_text: str) -> tuple[str, str]:
+    """长视频问答的自适应检索策略（核心原则：不是无脑全部走RAG）。
+
+    字幕短于阈值就把全文直接注入prompt——短视频场景下不存在"检索漏掉相关内容"的
+    风险，直接注入比RAG更准确；只有超过阈值、没法整段塞进prompt时，才走RAG检索
+    最相关的几个片段，避免像以前那样简单截断丢内容。
+
+    返回 (context, mode)，mode是"direct"或"rag"，只是给调用方/测试观察走了哪条
+    分支用，不影响context本身的内容
+    """
+    if len(full_text) <= CONTEXT_LIMIT_THRESHOLD:
+        return full_text, "direct"
+
+    results = rag.query(question, doc_type="subtitle", top_k=RAG_TOP_K, extra_where={"video_id": video_id})
+    context = "\n".join(
+        f"[{_format_ts(r['metadata']['start_time'])}] {r['text']}" for r in results
+    )
+    return context, "rag"
 
 
 # 支持的语言：AI 输出语言的显示名 + 总结小节标题 + 字幕轨道优先候选。
@@ -177,6 +292,7 @@ class SubtitleExtractor:
             if result["has_subtitle"]:
                 if video_id:
                     _save_segments(video_id, result["segments"], result["language"], result["subtitle_type"])
+                    result["video_id"] = video_id
                 return result
 
         info = self._get_video_info(url)
@@ -215,6 +331,7 @@ class SubtitleExtractor:
                     "subtitle_type": sub_type,
                     "segments": segments,
                     "full_text": full_text,
+                    "video_id": video_id,
                 }
 
         duration = info.get("duration") or 0
@@ -224,8 +341,24 @@ class SubtitleExtractor:
         whisper_result = self._transcribe_with_whisper(url, source_lang)
         if whisper_result:
             _save_segments(video_id, whisper_result["segments"], whisper_result["language"], whisper_result["subtitle_type"])
+            whisper_result["video_id"] = video_id
             return whisper_result
         return self._empty()
+
+    def get_video_id(self, url: str) -> str:
+        """算出字幕缓存/RAG检索用的video_id（"平台:视频ID"），跟extract()内部算的是
+        同一套规则。单独抽出这个方法是因为main.py的/api/chat在"前端已经带着缓存的
+        subtitle_text过来、不需要重新提取字幕"这个分支里，仍然需要拿到video_id去
+        Chroma按video_id过滤检索——这种情况下不需要（也不应该）跑一遍完整的extract()。
+
+        注意这跟chat_history.py的video_id_for_url（对URL做哈希）是两套独立标识，
+        互不通用：那边只是给对话记忆分组用的key，这边要跟SubtitleSegment表、Chroma
+        里存的video_id对得上，才能查到同一个视频的字幕分块"""
+        if _is_bilibili_url(url):
+            bvid = self._parse_bvid(url)
+            return f"bilibili:{bvid}" if bvid else ""
+        info = self._get_video_info(url)
+        return f"{info.get('extractor_key', 'unknown')}:{info.get('id', '')}"
 
     @staticmethod
     def _too_long(duration: float, upgrade_hint: bool) -> dict:
@@ -636,14 +769,27 @@ class VideoSummarizer:
         )
         return response.choices[0].message.content
 
-    def chat_stream(self, subtitle_text: str, question: str, language: str = DEFAULT_LANGUAGE):
-        """基于视频内容的 AI 问答，流式返回"""
-        prompt = self._build_chat_prompt(subtitle_text, question, language)
+    def chat_stream(self, video_id: str, subtitle_text: str, question: str, language: str = DEFAULT_LANGUAGE, history: list[dict] | None = None):
+        """基于视频内容的 AI 问答，流式返回。
+
+        video_id: 字幕缓存/RAG检索用的video_id（"平台:视频ID"，见SubtitleExtractor.get_video_id）。
+        短视频直接注入字幕全文时用不上，长视频走RAG检索时用来限定只查这个视频自己的字幕分块，
+        不会跨视频检索到不相关内容（见get_video_context）。
+
+        history: 由 chat_history.get_recent_history() 取回的最近几轮对话（[{"role": "user"/"assistant",
+        "content": ...}, ...]，旧→新），拼在字幕上下文之后、当前问题之前，让模型能"记住"前几轮聊了什么。
+        字幕内容只在第一条 user 消息里出现一次（不随每轮历史重复），避免大段字幕文本被重复计入 token。
+        """
+        context, _mode = get_video_context(video_id, question, subtitle_text)
+        messages = [
+            {"role": "system", "content": SUBTITLE_CHAT_SYSTEM_PROMPT},
+            {"role": "user", "content": self._build_chat_context_prompt(context)},
+        ]
+        messages.extend(history or [])
+        messages.append({"role": "user", "content": question})
+
         response = self._create(
-            messages=[
-                {"role": "system", "content": SUBTITLE_CHAT_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            messages=messages,
             stream=True,
             temperature=0.7,
             max_tokens=2048,
@@ -697,17 +843,15 @@ class VideoSummarizer:
 {truncated}"""
 
     @staticmethod
-    def _build_chat_prompt(subtitle_text: str, question: str, language: str) -> str:
-        # language 参数暂时不在这里用——system prompt 已经要求"跟随用户提问语言回答"，
-        # 这里如果再强制指定 cfg['name'] 语言，两条指令会互相打架，所以不传
-        truncated = subtitle_text[:12000]
-        return f"""以下是一个视频的字幕内容，请根据这些内容回答用户的问题。
+    def _build_chat_context_prompt(context: str) -> str:
+        # 只放字幕内容，不再拼问题——问题和历史对话现在都是独立的 message（见 chat_stream），
+        # 这条消息只起"给模型看一遍字幕"的作用，同一轮对话里只出现这一次。
+        # context 已经是get_video_context处理好的内容（短视频是完整字幕，长视频是RAG
+        # 检索出的相关片段拼接），不再在这里做字符截断——截断/检索的判断已经做过了
+        return f"""以下是一个视频的字幕内容，请根据这些内容回答我接下来的问题。
 
 视频字幕内容：
-{truncated}
-
----
-用户问题：{question}"""
+{context}"""
 
 
 def _time_to_seconds(time_str: str) -> float:

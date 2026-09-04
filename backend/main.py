@@ -17,14 +17,22 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
+import faq
 import quota
+import rag
 from billing import PRO_DAILY_LIMIT, billing_router
+from chat_history import append_message, get_recent_history, video_id_for_url
 from db import User, async_session_maker, create_db_and_tables, get_async_session
 from downloader import VideoDownloader
 from feedback import UPLOAD_DIR, feedback_router
 from schemas import UserCreate, UserRead, UserUpdate
 from stats import cleanup_old_request_logs, increment_counter, log_download, log_open_endpoint_request, stats_router
-from summarizer import FREE_WHISPER_MINUTES, PRO_WHISPER_MINUTES
+from summarizer import (
+    CONTEXT_LIMIT_THRESHOLD,
+    FREE_WHISPER_MINUTES,
+    PRO_WHISPER_MINUTES,
+    rebuild_subtitle_rag_index,
+)
 from users import TooManyRegistrationsError, auth_backend, current_active_user_optional, fastapi_users, google_oauth_router
 
 downloader = VideoDownloader()
@@ -86,6 +94,22 @@ def _get_extractor():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
+
+    # Chroma的持久化索引文件有可能损坏（比如进程异常崩溃、正好卡在写入索引的中途），
+    # 启动时探活一次，坏了就清空重建——Chroma里存的都是能从别处重新算出来的派生数据
+    # （FAQ来自faq_data/*.json，字幕来自subtitle_segment表），不是唯一保存的原始数据。
+    # 字幕重建是相对重的操作（要重新embedding所有视频的所有chunk），只在真的探测到
+    # 损坏时才做；FAQ重新加载很便宜（上百条数据、upsert幂等），不管这次是不是损坏、
+    # 是不是全新空集合，都无条件跑一遍，保证FAQ数据不会因为集合是空的而一直缺失
+    if not rag.is_healthy():
+        print("[启动] Chroma索引异常，正在自动重建...")
+        rag.reset_storage()
+        subtitle_chunk_count = rebuild_subtitle_rag_index()
+        print(f"[启动] 字幕索引重建完成：{subtitle_chunk_count} 条chunk")
+
+    faq_count = faq.load_faq_into_chroma()
+    print(f"[启动] FAQ数据已确认加载：{faq_count} 条")
+
     async with async_session_maker() as session:
         await cleanup_old_request_logs(session)
     yield
@@ -159,6 +183,17 @@ class ChatRequest(BaseModel):
     subtitle_text: str = ""
     language: str = "zh-Hans"
     source_language: str = ""
+    # 多轮对话记忆的会话标识：已登录传 user.id、未登录传前端自己生成存 localStorage 的
+    # UUID，由前端生成/管理，后端只管接收使用（见 chat_history.py）
+    session_id: str
+
+
+class FaqChatRequest(BaseModel):
+    question: str
+    language: str = "zh"  # zh/en/pt，FAQ三语言分开维护，检索只在当前语言内进行
+    # 是否是本次会话的第一条消息，由前端自己维护并传入（跟 ChatRequest.session_id 记录的
+    # 多轮对话记忆是两回事——FAQ问答目前不接对话记忆，见 faq.py 里的说明）
+    is_first_turn: bool = True
 
 
 @app.get("/api/health")
@@ -302,6 +337,19 @@ async def summarize_video(
         )
 
 
+@app.get("/api/chat/history")
+async def get_chat_history_route(
+    url: str,
+    session_id: str,
+    session: AsyncSession = Depends(get_async_session),
+):
+    """给前端聊天面板展示历史用（跟 /api/chat 内部拼 prompt 那次查询是同一份数据，
+    这里只是单独暴露一个只读接口，不消耗额度、不触发任何 AI 调用）"""
+    history_video_id = video_id_for_url(url)
+    history = await get_recent_history(session, history_video_id, session_id)
+    return {"messages": history}
+
+
 @app.post("/api/chat", response_class=EventSourceResponse)
 async def chat_with_video(
     req: ChatRequest,
@@ -321,11 +369,16 @@ async def chat_with_video(
         return
 
     await increment_counter(session, "ai_chat")
+    # 对话记忆用的video_id（URL哈希）——跟下面字幕RAG检索用的subtitle_video_id
+    # （"平台:视频ID"）是两套独立标识，不要混用，见 chat_history.py 里的说明
+    history_video_id = video_id_for_url(req.url)
 
     try:
+        loop = asyncio.get_event_loop()
+        extractor = _get_extractor()
+        subtitle_video_id = ""
+
         if not req.subtitle_text.strip():
-            loop = asyncio.get_event_loop()
-            extractor = _get_extractor()
             subtitle_data = await loop.run_in_executor(None, extractor.extract, req.url, req.source_language)
             if not subtitle_data["has_subtitle"]:
                 yield ServerSentEvent(
@@ -334,18 +387,47 @@ async def chat_with_video(
                 )
                 return
             subtitle_text = subtitle_data["full_text"]
+            subtitle_video_id = subtitle_data.get("video_id", "")
         else:
             subtitle_text = req.subtitle_text
+            # 前端带了缓存的字幕文本过来，本来不需要再提取——但如果字幕长度超过直接注入的
+            # 阈值，问答要走RAG检索，检索得按video_id过滤，这时才需要单独算一次video_id
+            # （不用完整走一遍extract()，只解析视频信息，不重新下载字幕/不调用Whisper）
+            if len(subtitle_text) > CONTEXT_LIMIT_THRESHOLD:
+                subtitle_video_id = await loop.run_in_executor(None, extractor.get_video_id, req.url)
+
+        history = await get_recent_history(session, history_video_id, req.session_id)
 
         summarizer = _get_summarizer()
-        for token in summarizer.chat_stream(subtitle_text, req.question, req.language):
+        answer_parts: list[str] = []
+        for token in summarizer.chat_stream(subtitle_video_id, subtitle_text, req.question, req.language, history=history):
+            answer_parts.append(token)
             yield ServerSentEvent(raw_data=json.dumps(token, ensure_ascii=False), event="answer")
+
+        # 等完整回答生成完再落库（而不是逐 token 写），一轮对话记两行：用户提问 + AI回答
+        await append_message(session, history_video_id, req.session_id, "user", req.question)
+        await append_message(session, history_video_id, req.session_id, "assistant", "".join(answer_parts))
 
         yield ServerSentEvent(raw_data="[DONE]", event="done")
 
     except Exception as e:
         yield ServerSentEvent(
             raw_data=json.dumps({"message": _friendly_ai_error("问答", e)}, ensure_ascii=False),
+            event="error",
+        )
+
+
+@app.post("/api/faq/chat", response_class=EventSourceResponse)
+async def faq_chat(req: FaqChatRequest) -> AsyncIterable[ServerSentEvent]:
+    """FAQ 智能问答 QA agent（SSE 流式）。不消耗 AI 总结/问答那份每日额度——
+    这是客服问答，跟视频处理是两类不同的功能配额"""
+    try:
+        for token in faq.faq_chat_stream(req.question, req.language, req.is_first_turn):
+            yield ServerSentEvent(raw_data=json.dumps(token, ensure_ascii=False), event="answer")
+        yield ServerSentEvent(raw_data="[DONE]", event="done")
+    except Exception as e:
+        yield ServerSentEvent(
+            raw_data=json.dumps({"message": _friendly_ai_error("FAQ问答", e)}, ensure_ascii=False),
             event="error",
         )
 
