@@ -696,12 +696,17 @@ class VideoSummarizer:
     2. 整体请求的指数退避重试：应对瞬时网络问题或列表内模型同时不可用的极端情况
     """
 
-    # 优先级列表：openrouter/free 由 OpenRouter 自己智能选可用免费模型，
-    # 后面是手动挑的通用能力强、中文效果好的免费模型做兜底
+    # 优先级列表：都是明确指定的具体模型，不用"openrouter/free"这种自动路由——
+    # 实测过它会不可控地路由到免费池里任意一个模型，真出现过被路由到
+    # nvidia/nemotron-3.5-content-safety:free 这种内容安全审核模型（不是聊天模型）的情况，
+    # 返回的是"User Safety: safe"这类审核分类结果，不是正常回答。tencent/hy3:free 已经
+    # 实测确认 404 下线（OpenRouter 提示改用付费版 tencent/hy3），一并去掉。
+    # 三个都实测调用过：minimax-m3 直接返回正常回复；另外两个当时被上游临时限流（429），
+    # 属于服务商容量问题，留在列表里给下面的故障转移机制处理，不代表模型本身失效
     # 注意：OpenRouter 的 models 故障转移数组最多 3 项
     FALLBACK_MODELS = [
-        "openrouter/free",
-        "tencent/hy3:free",
+        "minimax/minimax-m3:free",
+        "z-ai/glm-5.2:free",
         "google/gemma-4-31b-it:free",
     ]
     MAX_RETRIES = 3
