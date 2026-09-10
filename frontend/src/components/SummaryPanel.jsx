@@ -5,8 +5,9 @@ import { marked } from 'marked'
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
 import { FileText, Captions, Network, MessageCircle, Sparkles, Wand2 } from 'lucide-react'
-import { summarizeVideo, chatWithVideo, getQuota } from '../api/summarize'
+import { summarizeVideo, chatWithVideo, getChatHistory, getQuota } from '../api/summarize'
 import { useLangPath } from '../i18n/langPath'
+import { getAnonymousSessionId } from '../utils/session'
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -175,6 +176,13 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+// 任务5：AI 回答里如果引用了时间点（比如"03:12"或"1:02:03"），用 teal 色高亮标出来，
+// 让用户在视觉上能一眼识别出这是个时间点。在 marked.parse() 之前对原始文本做替换——
+// marked 默认不会转义源文本里已经写好的行内 HTML，替换出来的 <span> 能正常穿透渲染。
+function highlightTimestamps(text) {
+  return text.replace(/\b(\d{1,2}:)?\d{1,2}:\d{2}\b/g, (match) => `<span class="text-teal-600 font-semibold">${match}</span>`)
+}
+
 export default function SummaryPanel({ videoUrl, videoTitle }) {
   const { t } = useTranslation()
   const lp = useLangPath()
@@ -231,6 +239,10 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
   const [chatLoading, setChatLoading] = useState(false)
   const chatContainerRef = useRef(null)
   const subtitleDropdownRef = useRef(null)
+
+  // 任务6：未登录用户的匿名 session_id，用于关联这个视频的历史对话记录（已登录用户走 user.id，
+  // 后端自己判断优先用哪个，前端始终把这个值带上就行）
+  const sessionId = getAnonymousSessionId()
 
   const renderMarkdown = useCallback((text) => (text ? marked.parse(text) : ''), [])
 
@@ -324,6 +336,18 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
     startSummarize()
     return () => { cancelled = true }
   }, [started, videoUrl, language, sourceLanguage, refreshQuota, t])
+
+  // 任务6：面板打开后拉一次这个视频之前问过的历史对话，展示在问答 Tab 里。
+  // 后端任务6的历史接口还没部署，请求失败/404 时 getChatHistory 静默返回空数组，不影响使用。
+  useEffect(() => {
+    if (!started) return
+    let cancelled = false
+    getChatHistory(videoUrl, sessionId).then((history) => {
+      if (cancelled || history.length === 0) return
+      setChatMessages((prev) => (prev.length === 0 ? history.map((h) => ({ role: h.role, content: h.content })) : prev))
+    }).catch(() => { /* 历史记录拉取失败不影响主流程，静默忽略 */ })
+    return () => { cancelled = true }
+  }, [started, videoUrl, sessionId])
 
   function toggleFullscreen() {
     if (!mindmapContainerRef.current) return
@@ -512,7 +536,7 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
     }
 
     try {
-      await chatWithVideo(videoUrl, question, subtitleData.full_text || '', { language, sourceLanguage }, {
+      await chatWithVideo(videoUrl, question, subtitleData.full_text || '', { language, sourceLanguage, sessionId }, {
         answer: (data) => {
           let token = data
           try { token = JSON.parse(data) } catch { /* raw */ }
@@ -768,15 +792,23 @@ export default function SummaryPanel({ videoUrl, videoTitle }) {
                     }`}
                   >
                     {msg.role === 'assistant' ? (
-                      <div
-                        className="prose prose-slate max-w-none prose-p:leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-                      />
+                      msg.loading ? (
+                        // 后端现在是攒完整回复校验通过才一次性返回（不是逐token流式，见summarizer.py
+                        // 的_looks_like_valid_reply），这段等待期间用"正在输入"三点跳动代替旧的
+                        // 光标闪烁——旧效果是为逐字流式设计的，内容一次性到达时对不上
+                        <div className="flex items-center gap-1 py-1">
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400" style={{ animationDelay: '0ms' }} />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400" style={{ animationDelay: '150ms' }} />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      ) : (
+                        <div
+                          className="prose prose-slate max-w-none prose-p:leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(highlightTimestamps(msg.content)) }}
+                        />
+                      )
                     ) : (
                       <span>{msg.content}</span>
-                    )}
-                    {msg.role === 'assistant' && msg.loading && (
-                      <span className="inline-block w-1.5 h-4 bg-teal-400 rounded-sm animate-pulse ml-0.5 align-text-bottom" />
                     )}
                   </div>
                 </div>
