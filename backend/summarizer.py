@@ -19,6 +19,27 @@ def _is_bilibili_url(url: str) -> bool:
     return "bilibili.com" in url or "b23.tv" in url
 
 
+# 用"openrouter/free"自动路由免费模型（见 VideoSummarizer.FALLBACK_MODELS 的注释）之后，
+# 实测遇到过被路由到 nvidia/nemotron-3.5-content-safety 这类内容审核/分类模型的情况——
+# 这种模型不是用来聊天的，返回的是"User Safety: safe"这种分类标签，不是真的在回答问题。
+# 这里只是已知坏模式的黑名单匹配，不追求完美识别所有异常输出，只挡住实测遇到过的这类情况
+_SUSPICIOUS_REPLY_PATTERNS = [
+    r"^user\s*safety\s*[:：]",
+    r"^content\s*safety\s*[:：]",
+    r"^safety\s*[:：]",
+    r"^(safe|unsafe)\s*[.。]?\s*$",
+]
+
+
+def _looks_like_valid_reply(text: str) -> bool:
+    """粗略判断一段回复像不像正常聊天回复（而不是安全审核模型误路由后返回的分类标签）"""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    lowered = stripped.lower()
+    return not any(re.match(p, lowered) for p in _SUSPICIOUS_REPLY_PATTERNS)
+
+
 def _format_ts(seconds: float) -> str:
     """时间戳格式化成 mm:ss，超过1小时用 hh:mm:ss，给 AI 引用具体时间点用"""
     total = int(seconds)
@@ -696,18 +717,24 @@ class VideoSummarizer:
     2. 整体请求的指数退避重试：应对瞬时网络问题或列表内模型同时不可用的极端情况
     """
 
-    # 优先级列表：都是明确指定的具体模型，不用"openrouter/free"这种自动路由——
-    # 实测过它会不可控地路由到免费池里任意一个模型，真出现过被路由到
-    # nvidia/nemotron-3.5-content-safety:free 这种内容安全审核模型（不是聊天模型）的情况，
-    # 返回的是"User Safety: safe"这类审核分类结果，不是正常回答。tencent/hy3:free 已经
-    # 实测确认 404 下线（OpenRouter 提示改用付费版 tencent/hy3），一并去掉。
-    # 三个都实测调用过：minimax-m3 直接返回正常回复；另外两个当时被上游临时限流（429），
-    # 属于服务商容量问题，留在列表里给下面的故障转移机制处理，不代表模型本身失效
+    # 优先级列表——踩过两次坑之后的结论：OpenRouter 免费模型池变动非常快（实测 minimax-m3、
+    # z-ai/glm-5.2 五天内就从"正常可用"变成 404 下线，tencent/hy3 同样下线过），写死具体
+    # 模型名单靠人工维护跟不上这个变化速度。所以第一位换成"openrouter/free"——这是
+    # OpenRouter 官方文档里的 Free Models Router（见 guides/routing/routers/free-router），
+    # 自动路由到免费池里当前可用的模型，不需要我们手动追踪哪个模型又下线了。
+    # 后两位是当前实测确认可用的具体模型，纯粹是万一自动路由那次请求恰好失败时的兜底，
+    # 就算它们以后也下线了不影响——反正第一位永远有效，不用因为这两个过期就回来改代码。
+    #
+    # 残余风险：自动路由官方文档写的是"按请求需要的能力过滤"（图片理解/工具调用等），
+    # 不保证排除内容审核/分类这类不适合直接聊天的模型——查过官方的 excluded_models
+    # 排除机制，那个只对 "openrouter/auto"（付费也包含在内的通用路由）生效，免费专属的
+    # "openrouter/free" 没有这个排除选项。所以这层风险没法在 OpenRouter 这一端解决，
+    # 靠下面 _create() 里的输出质量检查兜底（见 _looks_like_valid_reply）
     # 注意：OpenRouter 的 models 故障转移数组最多 3 项
     FALLBACK_MODELS = [
-        "minimax/minimax-m3:free",
-        "z-ai/glm-5.2:free",
-        "google/gemma-4-31b-it:free",
+        "openrouter/free",
+        "nex-agi/nex-n2.5-pro:free",
+        "nex-agi/nex-n2.5-mini:free",
     ]
     MAX_RETRIES = 3
     RETRY_BACKOFF_SECONDS = 1.5
@@ -793,16 +820,18 @@ class VideoSummarizer:
         messages.extend(history or [])
         messages.append({"role": "user", "content": question})
 
-        response = self._create(
-            messages=messages,
-            stream=True,
-            temperature=0.7,
-            max_tokens=2048,
-        )
-        for chunk in response:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield delta.content
+        # 问答场景回复通常短，先攒完整回复校验一遍再"重放"给调用方，不是真的逐 token 流式——
+        # 用户几乎感觉不到延迟差异（问答本来就没有总结那么长），换来的是不会把安全审核模型
+        # 误路由后返回的分类标签当成正常回答展示出去（见 _looks_like_valid_reply）
+        full_reply = ""
+        for attempt in range(2):
+            response = self._create(messages=messages, stream=True, temperature=0.7, max_tokens=2048)
+            full_reply = "".join(
+                chunk.choices[0].delta.content or "" for chunk in response
+            )
+            if _looks_like_valid_reply(full_reply):
+                break
+        yield full_reply
 
     @staticmethod
     def _build_summary_prompt(subtitle_text: str, language: str) -> str:
