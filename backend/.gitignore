@@ -6,3 +6,4 @@ uploads/
 server.log
 .env
 app.db
+chroma_data/

@@ -153,6 +153,25 @@ class Feedback(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class ChatHistory(Base):
+    """多轮对话记忆：同一个 (video_id, session_id) 下的问答历史，用于把最近几轮对话拼进
+    prompt 让 AI"记住"上下文。video_id 不是 SubtitleSegment 那个"平台:视频ID"，是对视频
+    URL 哈希出来的独立标识（见 chat_history.py 的 video_id_for_url）——这个功能不依赖字幕
+    缓存的实现细节。session_id 由前端生成/管理（已登录传 user.id，未登录传前端自己生成、
+    存 localStorage 的 UUID），后端只管接收和使用，不关心它具体怎么来的。
+
+    读写走这里的异步 SQLAlchemy session（不是 SubtitleSegment 那种独立 sqlite3 连接），
+    因为这张表只在 main.py 的 async 路由里被读写，本来就有 AsyncSession 可用"""
+    __tablename__ = "chat_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    video_id: Mapped[str] = mapped_column(String(128), index=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    role: Mapped[str] = mapped_column(String(20))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True, default=datetime.utcnow)
+
+
 engine = create_async_engine(DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 

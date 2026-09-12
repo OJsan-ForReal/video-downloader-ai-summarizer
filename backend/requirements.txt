@@ -12,3 +12,5 @@ stripe
 python-multipart
 chromadb
 sentence-transformers
+langchain
+langchain-openai
