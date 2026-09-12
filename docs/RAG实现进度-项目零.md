@@ -21,13 +21,14 @@ def _build_full_text(segments: list[dict]) -> str:
     return "\n".join(f"[{_format_ts(seg['start'])}] {seg['text']}" for seg in segments)
 ```
 
-**2. 三处字幕拼接逻辑统一改用上面这个函数**（原来是`" ".join(seg["text"] for seg in
-segments)`，时间戳被扔了）：
+**2. 三处字幕拼接逻辑统一改用上面这个函数**（原来是`" ".join(seg["text"] for seg in segments)`，时间戳被扔了）：
+
 - `_download_and_parse`路径（YouTube/其他平台，VTT解析）
 - `_transcribe_with_whisper`路径（Whisper转录兜底）
 - `_extract_bilibili`路径（B站CC字幕）
 
 现在字幕文本长这样（喂给AI的实际内容）：
+
 ```
 [00:00] 这是第一句字幕
 [00:03] 这是第二句字幕
@@ -37,12 +38,14 @@ segments)`，时间戳被扔了）：
 
 **3. 新增`SUBTITLE_CHAT_SYSTEM_PROMPT`常量**，替换掉原来写死在`chat_stream`里的那句
 简单system prompt。新版本包含四层要求：
+
 - 专注回答当前视频内容（原有）
 - 不知道就诚实说、不编造（**从原来user prompt结尾那句挪过来的，现在是system层硬性约束**）
 - 优先引用具体时间点（新增，靠上面第2点的时间戳前缀实现）
 - 跟随用户提问语言回答，不固定某一种语言（新增）
 
 **4. `_build_chat_prompt`（user prompt构建函数）删掉了两处内容**：
+
 - 结尾"请基于视频内容给出准确、详细的回答..."那句——已经在system prompt里了，不重复
 - 开头"使用{cfg['name']}回答"这个语言强制指定——**这是我在实现时发现的一个隐藏冲突**：
   system prompt已经要求"跟随用户提问语言"，如果user prompt这边又强制指定另一种语言，
