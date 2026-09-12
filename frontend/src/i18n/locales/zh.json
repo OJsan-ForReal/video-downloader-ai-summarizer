@@ -195,7 +195,19 @@
     "summarizeFailedWithMessage": "总结失败: {{message}}",
     "summarizeRequestFailedWithMessage": "总结请求失败: {{message}}"
   },
+  "faq": {
+    "entry": "在线客服",
+    "title": "QA agent",
+    "subtitle": "网站功能、计费、使用方法问答",
+    "emptyHint": "有什么问题都可以问我",
+    "inputPlaceholder": "输入你的问题...",
+    "send": "发送",
+    "close": "关闭",
+    "answerFailed": "回答失败",
+    "requestFailedWithMessage": "请求失败: {{message}}"
+  },
   "errors": {
+    "FAQ_CHAT_REQUEST_FAILED": "请求失败",
     "REGISTER_USER_ALREADY_EXISTS": "这个邮箱已经注册过了，直接登录试试",
     "REGISTER_TOO_MANY_ACCOUNTS": "这个网络今天注册的账号太多了，请明天再试，或者直接登录已有账号",
     "LOGIN_BAD_CREDENTIALS": "邮箱或密码不对",

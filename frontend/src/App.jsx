@@ -12,6 +12,7 @@ import AdminStatsPage from './pages/AdminStatsPage'
 import FeedbackPage from './pages/FeedbackPage'
 import ParallaxIllustration from './components/ParallaxIllustration'
 import FeedbackButton from './components/FeedbackButton'
+import FaqChatWidget from './components/FaqChatWidget'
 import { useAuth } from './context/AuthContext'
 import { ALL_LANGS, useCurrentLang, useLangPath, stripLangPrefix, withLang } from './i18n/langPath'
 import { trackVisit, getPublicStats } from './api/stats'
@@ -51,13 +52,13 @@ function AuthHeaderControls() {
 }
 
 function LanguageSwitcher() {
-  const currentLang = useCurrentLang() || 'zh'
+  const currentLang = useCurrentLang() || 'en'
   const location = useLocation()
   const navigate = useNavigate()
 
   function switchTo(target) {
     if (target === currentLang) return
-    const rest = stripLangPrefix(location.pathname, currentLang)
+    const rest = stripLangPrefix(location.pathname)
     navigate(withLang(target, rest) + location.search)
   }
 
@@ -147,6 +148,7 @@ function MainLayout() {
 
       <Outlet />
       <FeedbackButton />
+      <FaqChatWidget />
 
       <footer className="relative mt-8 border-t border-teal-100 bg-teal-50/60 py-10 text-center text-xs text-slate-700 space-y-3">
         <div

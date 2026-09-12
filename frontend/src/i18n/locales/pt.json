@@ -195,7 +195,19 @@
     "summarizeFailedWithMessage": "Falha ao resumir: {{message}}",
     "summarizeRequestFailedWithMessage": "Pedido de resumo falhou: {{message}}"
   },
+  "faq": {
+    "entry": "Falar com o QA agent",
+    "title": "QA agent",
+    "subtitle": "Pergunte sobre funcionalidades, faturação e utilização",
+    "emptyHint": "Pergunte-me o que quiser sobre este site",
+    "inputPlaceholder": "Escreva a sua pergunta...",
+    "send": "Enviar",
+    "close": "Fechar",
+    "answerFailed": "Falha ao responder",
+    "requestFailedWithMessage": "Pedido falhou: {{message}}"
+  },
   "errors": {
+    "FAQ_CHAT_REQUEST_FAILED": "Pedido falhou",
     "REGISTER_USER_ALREADY_EXISTS": "Este email já está registado — experimente iniciar sessão",
     "REGISTER_TOO_MANY_ACCOUNTS": "Foram criadas demasiadas contas a partir desta rede hoje. Tente novamente amanhã ou inicie sessão numa conta existente",
     "LOGIN_BAD_CREDENTIALS": "Email ou palavra-passe incorretos",

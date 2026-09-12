@@ -1,16 +1,15 @@
 import { Link, useLocation } from 'react-router-dom'
 import { MessageSquarePlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useLangPath, stripLangPrefix, useCurrentLang } from '../i18n/langPath'
+import { useLangPath, stripLangPrefix } from '../i18n/langPath'
 
 // 全站悬浮入口，唯独反馈页自己不显示（避免"点按钮跳到反馈页，反馈页上又叠一个同样的按钮"）
 export default function FeedbackButton() {
   const { t } = useTranslation()
   const lp = useLangPath()
   const location = useLocation()
-  const currentLang = useCurrentLang() || 'zh'
 
-  if (stripLangPrefix(location.pathname, currentLang) === '/feedback') return null
+  if (stripLangPrefix(location.pathname) === '/feedback') return null
 
   return (
     <Link

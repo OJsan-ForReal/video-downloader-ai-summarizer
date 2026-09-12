@@ -195,7 +195,19 @@
     "summarizeFailedWithMessage": "Summarization failed: {{message}}",
     "summarizeRequestFailedWithMessage": "Summarization request failed: {{message}}"
   },
+  "faq": {
+    "entry": "Chat with QA agent",
+    "title": "QA agent",
+    "subtitle": "Ask about features, billing, and usage",
+    "emptyHint": "Ask me anything about this site",
+    "inputPlaceholder": "Type your question...",
+    "send": "Send",
+    "close": "Close",
+    "answerFailed": "Failed to answer",
+    "requestFailedWithMessage": "Request failed: {{message}}"
+  },
   "errors": {
+    "FAQ_CHAT_REQUEST_FAILED": "Request failed",
     "REGISTER_USER_ALREADY_EXISTS": "This email is already registered — try logging in instead",
     "REGISTER_TOO_MANY_ACCOUNTS": "Too many accounts have been registered from this network today. Please try again tomorrow, or log in to an existing account",
     "LOGIN_BAD_CREDENTIALS": "Incorrect email or password",
